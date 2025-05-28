@@ -24,11 +24,13 @@
     const LOGGER = new duckdb.ConsoleLogger();
     const DUCKDB = await duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER);
     const db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
-    await db.instantiate();
+    db.instantiate().then((arg) => {
+        console.log(arg);
+        const conn = await db.connect();
+        const result = await conn.query(`SELECT 42 AS answer`);
+        console.log(result.toArray()); // [{answer: 42}]
+    });
 
-    const conn = await db.connect();
-    const result = await conn.query(`SELECT 42 AS answer`);
-    console.log(result.toArray()); // [{answer: 42}]
     </script>
 
 </body>
