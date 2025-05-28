@@ -46,6 +46,12 @@
         // ... and run the query with materialized results
         console.log((await stmt.query(234)).toArray());
       });
+      /*
+      conn = await _db.connect()
+      r = await conn.query("SELECT * from read_parquet(['https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000000.parquet', 'https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000001.parquet']) LIMIT 1")
+      r.toArray().map((row) => row.toJSON())
+      */
+
     </script>
   </body>
 </html>
