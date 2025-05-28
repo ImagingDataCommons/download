@@ -1,1 +1,36 @@
-<b>Hello IDC!</b>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DuckDB WASM S3 Example</title>
+  <script src="https://cdn.jsdelivr.net/npm/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+</head>
+<body>
+  <h1>DuckDB WASM S3 Query Example</h1>
+  <pre id="output">Running query...</pre>
+  <script>
+    async function runDuckDBQuery() {
+      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+      const worker = new duckdb.AsyncDuckDBWorker(bundle.mainWorker);
+      const db = new duckdb.AsyncDuckDB(worker);
+
+      // Enable S3 support
+      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      await db.query("INSTALL httpfs; LOAD httpfs;");
+      await db.query("SET s3_region='us-central1';"); // Set your S3 region if needed
+
+      // Run the query
+      try {
+        const result = await db.query(
+          "SELECT * FROM 's3://idc-open-metadata/bigquery_export/idc_current/dicom_all/**/*.parquet' LIMIT 1;"
+        );
+        document.getElementById('output').textContent = JSON.stringify(result.toArray(), null, 2);
+      } catch (e) {
+        document.getElementById('output').textContent = 'Error: ' + e.message;
+      }
+    }
+    runDuckDBQuery();
+  </script>
+</body>
+</html>
