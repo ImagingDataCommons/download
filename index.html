@@ -21,7 +21,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.2.1/dist/duckdb-browser-sync.js"></script>
 
     <script>
-    let db
+    let db;
+    /*
     const LOGGER = new duckdb.ConsoleLogger();
     duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER).then((DUCKDB) => {
         db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
@@ -34,6 +35,25 @@
             });
         });
     });    
+        */
+
+    window.addEventListener('DOMContentLoaded', () => {
+    
+        let db;
+        const LOGGER = new duckdb.ConsoleLogger();
+        duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER).then((DUCKDB) => {
+            db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
+            db.instantiate().then((arg) => {
+                console.log(arg);
+                db.connect().then((conn) => {
+                    conn.query(`SELECT 42 AS answer`).then((result) => {
+                        console.log(result.toArray()); // [{answer: 42}]
+                    });
+                });
+            });
+        });
+    
+});
 
     </script>
 
