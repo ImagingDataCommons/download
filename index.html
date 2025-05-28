@@ -21,17 +21,19 @@
     <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.2.1/dist/duckdb-browser-sync.js"></script>
 
     <script>
+    let db
     const LOGGER = new duckdb.ConsoleLogger();
-    const DUCKDB = await duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER);
-    const db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
-    db.instantiate().then((arg) => {
-        console.log(arg);
-        db.connect().then((conn) => {
-            conn.query(`SELECT 42 AS answer`).then( (result) => {
-                console.log(result.toArray()); // [{answer: 42}]        console.log(result.toArray()); // [{answer: 42}]
-            });         
+    duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER).then((DUCKDB) => {
+        db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
+        db.instantiate().then((arg) => {
+            console.log(arg);
+            db.connect().then((conn) => {
+                conn.query(`SELECT 42 AS answer`).then( (result) => {
+                    console.log(result.toArray()); // [{answer: 42}]        console.log(result.toArray()); // [{answer: 42}]
+                });         
+            });
         });
-    });
+    });    
 
     </script>
 
