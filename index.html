@@ -26,9 +26,11 @@
     const db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
     db.instantiate().then((arg) => {
         console.log(arg);
-        const conn = await db.connect();
-        const result = await conn.query(`SELECT 42 AS answer`);
-        console.log(result.toArray()); // [{answer: 42}]
+        db.connect().then((conn) => {
+            conn.query(`SELECT 42 AS answer`).then( (result) => {
+                console.log(result.toArray()); // [{answer: 42}]        console.log(result.toArray()); // [{answer: 42}]
+            });         
+        });
     });
 
     </script>
