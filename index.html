@@ -18,131 +18,17 @@
     <button id="queryButton" disabled>Run S3 Glob Query</button>
     <div id="output">Query results or errors will appear here.</div>
 
-    <script type="module">
-        // Using JSDelivr CDN for DuckDB-WASM (v1.28.0 was used in prior examples, consider latest for potential fixes)
-        // Latest ESM bundle: https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm/+esm
-        import *_duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm';
-        // For latest version (check releases for the exact version number):
-        // import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm';
+    <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.2.1/dist/duckdb-browser-sync.js"></script>
 
+    <script>
+    const LOGGER = new duckdb.ConsoleLogger();
+    const DUCKDB = await duckdb.createWorker(duckdb.getJsDelivrBundles(), LOGGER);
+    const db = new duckdb.SyncDuckDB(LOGGER, DUCKDB);
+    await db.instantiate();
 
-        const statusDiv = document.getElementById('status');
-        const outputDiv = document.getElementById('output');
-        const queryButton = document.getElementById('queryButton');
-        let db; // Hold the DuckDB instance
-
-        async function initializeDuckDB() {
-            try {
-                const JSDELIVR_BUNDLES = _duckdb.getJsDelivrBundles();
-                const bundle = await _duckdb.selectBundle(JSDELIVR_BUNDLES);
-                const workerUrl = URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`], {type: 'text/javascript'}));
-                const worker = new Worker(workerUrl);
-                const logger = new _duckdb.ConsoleLogger(_duckdb.LogLevel.INFO); // Use INFO for more detailed logs from DuckDB
-                
-                db = new _duckdb.AsyncDuckDB(logger, worker);
-                await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-                URL.revokeObjectURL(workerUrl);
-                
-                statusDiv.textContent = 'DuckDB-WASM Initialized.';
-                queryButton.disabled = false;
-            } catch (e) {
-                console.error("DuckDB-WASM Initialization Error:", e);
-                statusDiv.textContent = 'Error initializing DuckDB-WASM.';
-                outputDiv.textContent = `Initialization failed: ${e.toString()}\n\nCheck console for more details.`;
-                throw e;
-            }
-        }
-
-        async function runS3Query() {
-            if (!db) {
-                outputDiv.textContent = "Database not initialized.";
-                return;
-            }
-
-            outputDiv.textContent = 'Preparing to run query...';
-            queryButton.disabled = true;
-
-            // The S3 URL with a recursive glob pattern.
-            // This is the pattern that was reported to cause a 404 on the pattern string itself.
-            const s3GlobUrl = "s3://idc-open-metadata/bigquery_export/idc_current/dicom_all/**/*.parquet";
-            
-            // Your original query was "SELECT _FROM 's3://...'" which is not standard DuckDB SQL.
-            // The correct DuckDB way to read from Parquet files (including S3 globs) is:
-            const query = `
-                SELECT *
-                FROM read_parquet('${s3GlobUrl}')
-                LIMIT 1;
-            `;
-            // An alternative to try if the above fails due to the glob, is to select the filename
-            // to see what files, if any, are being found.
-            // const query_debug_glob = `
-            //     SELECT filename
-            //     FROM read_parquet('${s3GlobUrl}', FILENAME=true)
-            //     LIMIT 10;
-            // `;
-
-
-            let conn = null;
-            try {
-                conn = await db.connect();
-                outputDiv.textContent = 'Connection established. Running query...\nThis might take a moment for S3 globbing.';
-                console.log("Executing query:", query);
-
-                // Explicitly install and load httpfs. This is crucial.
-                // For many versions, these are bundled and loaded automatically, but explicit is safer for debugging.
-                await conn.query('INSTALL httpfs;');
-                await conn.query('LOAD httpfs;');
-
-                // Optional: Configure S3 settings if needed (usually not for public AWS S3)
-                // await conn.query("SET s3_endpoint='s3.amazonaws.com';");
-                // await conn.query("SET s3_use_ssl=true;");
-                // For public data, DuckDB automatically attempts unsigned requests.
-
-                const result = await conn.query(query);
-                // const result = await conn.query(query_debug_glob); // for debugging
-
-                outputDiv.textContent = `Query Successful!\n\nResult (Apache Arrow Table format):\n${result.toString()}`;
-                
-                // If you want to see results as JSON:
-                // const jsonData = result.toArray().map(row => row.toJSON());
-                // outputDiv.textContent = `Query Successful!\n\nResult (JSON):\n${JSON.stringify(jsonData, null, 2)}`;
-
-            } catch (e) {
-                console.error("Query Execution Error:", e);
-                outputDiv.textContent = `Error running query:\n${e.toString()}\n\n`;
-                outputDiv.textContent += `Query attempted:\n${query}\n\n`;
-                
-                if (e.message && e.message.includes("404")) {
-                    outputDiv.textContent += "A 404 error occurred. If the URL in the error message contains '**/*.parquet', it means the glob pattern itself was requested as a file, which is incorrect. This could indicate an issue with S3 path parsing or globbing implementation in httpfs for this specific recursive pattern.\n";
-                } else if (e.message && e.message.includes("No files found that match the pattern")) {
-                    outputDiv.textContent += "DuckDB's httpfs was able to list objects, but no files matched your glob pattern. Check the S3 path and pattern.\n";
-                } else if (e.message && (e.message.includes("IO Error") || e.message.includes("HTTP request failed"))) {
-                    outputDiv.textContent += "An I/O or HTTP error occurred. This could be due to network issues, CORS problems (ensure the S3 bucket allows GET/HEAD from this origin for ListBucket and GetObject actions), or the S3 path being inaccessible.\n";
-                }
-                outputDiv.textContent += "\nSee browser console (Developer Tools) for more detailed error logs from DuckDB.";
-
-            } finally {
-                if (conn) {
-                    try {
-                        await conn.close();
-                    } catch (closeError) {
-                        console.warn("Error closing connection:", closeError);
-                    }
-                }
-                queryButton.disabled = false;
-            }
-        }
-
-        async function main() {
-            try {
-                await initializeDuckDB();
-                queryButton.onclick = runS3Query;
-            } catch (e) {
-                // Error already handled and displayed by initializeDuckDB
-            }
-        }
-
-        main();
+    const conn = await db.connect();
+    const result = await conn.query(`SELECT 42 AS answer`);
+    console.log(result.toArray()); // [{answer: 42}]
     </script>
 
 </body>
