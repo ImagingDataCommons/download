@@ -50,6 +50,20 @@
       conn = await _db.connect()
       r = await conn.query("SELECT * from read_parquet(['https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000000.parquet', 'https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000001.parquet']) LIMIT 1")
       r.toArray().map((row) => row.toJSON())
+      r = await conn.query("SELECT DISTINCT collection_id from read_parquet(['https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000000.parquet', 'https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000001.parquet'])")
+      r.toArray().map((row) => row.toJSON())
+
+      x = new XMLHttpRequest()
+      x.open("GET", "https://idc-open-metadata.s3.amazonaws.com?max-keys=100000&prefix=bigquery_export/idc_current/dicom_all/")
+      x.addEventListener("load", console.log)
+      x.send()
+
+
+      xmls = x.response.toString()
+      p = new DOMParser()
+      DOMParser {}
+      doc = p.parseFromString(xmls, "text/xml")
+
       */
 
     </script>
