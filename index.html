@@ -1,36 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>DuckDB WASM S3 Example</title>
-  <script src="https://cdn.jsdelivr.net/npm/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+    <meta charset="utf-8">
+    <title>DuckDB-WASM S3 Query</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #output { margin-top: 10px; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; font-family: monospace; min-height: 50px; }
+        #status { margin-bottom: 10px; font-weight: bold; }
+    </style>
 </head>
 <body>
-  <h1>DuckDB WASM S3 Query Example</h1>
-  <pre id="output">Running query...</pre>
-  <script>
-    async function runDuckDBQuery() {
-      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-      const worker = new duckdb.AsyncDuckDBWorker(bundle.mainWorker);
-      const db = new duckdb.AsyncDuckDB(worker);
 
-      // Enable S3 support
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-      await db.query("INSTALL httpfs; LOAD httpfs;");
-      await db.query("SET s3_region='us-central1';"); // Set your S3 region if needed
+    <h1>DuckDB-WASM S3 Parquet Query</h1>
+    <div id="status">Initializing...</div>
+    <button id="queryButton" disabled>Run Query</button>
+    <div id="output"></div>
 
-      // Run the query
-      try {
-        const result = await db.query(
-          "SELECT * FROM 's3://idc-open-metadata/bigquery_export/idc_current/dicom_all/**/*.parquet' LIMIT 1;"
-        );
-        document.getElementById('output').textContent = JSON.stringify(result.toArray(), null, 2);
-      } catch (e) {
-        document.getElementById('output').textContent = 'Error: ' + e.message;
-      }
-    }
-    runDuckDBQuery();
-  </script>
+    <script type="module">
+        // Using JSDelivr CDN for DuckDB-WASM
+        import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm';
+
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+        const queryButton = document.getElementById('queryButton');
+
+        async function initializeDuckDB() {
+            try {
+                const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+                const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+                const workerUrl = URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`], {type: 'text/javascript'}));
+                const worker = new Worker(workerUrl);
+                const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING); // Be less verbose
+                const db = new duckdb.AsyncDuckDB(logger, worker);
+                await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+                URL.revokeObjectURL(workerUrl);
+                return db;
+            } catch (e) {
+                console.error("DuckDB-WASM Initialization Error:", e);
+                statusDiv.textContent = 'Error initializing DuckDB-WASM.';
+                outputDiv.textContent = e.toString();
+                throw e;
+            }
+        }
+
+        async function runQuery(db) {
+            outputDiv.textContent = 'Connecting to DB and running query...';
+            queryButton.disabled = true;
+
+            // The original query was "SELECT _FROM 's3://...".
+            // DuckDB standard SQL for this is `SELECT * FROM read_parquet('s3://...')`.
+            const s3FileUrl = "s3://idc-open-metadata/bigquery_export/idc_current/dicom_all/**/*.parquet";
+            const query = `SELECT * FROM read_parquet('${s3FileUrl}') LIMIT 1;`;
+            // Alternative using FROM-first syntax: `FROM read_parquet('${s3FileUrl}') SELECT * LIMIT 1;`
+
+
+            let conn = null;
+            try {
+                conn = await db.connect();
+
+                // httpfs is usually auto-loaded, but explicit install/load can be a good practice
+                // if issues arise or for clarity. For public S3 & CORS handled, this might not be strictly needed.
+                // await conn.query('INSTALL httpfs;'); // May not be needed if bundled
+                // await conn.query('LOAD httpfs;');   // May not be needed if auto-loaded
+
+                console.log("Executing query:", query);
+                const result = await conn.query(query);
+
+                outputDiv.textContent = `Query Successful!\n\nResult (Apache Arrow Table):\n${result.toString()}`;
+                // To get as JSON array of objects:
+                // const jsonData = result.toArray().map(row => row.toJSON());
+                // outputDiv.textContent = `Query Successful!\n\nResult (JSON):\n${JSON.stringify(jsonData, null, 2)}`;
+
+            } catch (e) {
+                console.error("Query Error:", e);
+                outputDiv.textContent = `Error running query:\n${e.toString()}`;
+                if (e.message && e.message.includes("No files found that match the pattern")) {
+                    outputDiv.textContent += "\n\nHint: The S3 glob pattern might not have matched any files, or there could be an issue accessing the S3 path despite public/CORS settings.";
+                } else if (e.message && (e.message.includes("HTTP GET Error") || e.message.includes("IO Error"))) {
+                    outputDiv.textContent += "\n\nHint: This could indicate a network issue, an incorrect S3 URL, or a CORS problem if the server/bucket configuration isn't fully allowing the request from this origin, even if believed to be set up.";
+                }
+            } finally {
+                if (conn) {
+                    await conn.close();
+                }
+                queryButton.disabled = false;
+            }
+        }
+
+        async function main() {
+            const db = await initializeDuckDB();
+            statusDiv.textContent = 'DuckDB-WASM Initialized. Ready.';
+            queryButton.disabled = false;
+            queryButton.onclick = () => runQuery(db);
+        }
+
+        main().catch(e => {
+            // Error already logged by initializeDuckDB if it failed there
+            statusDiv.textContent = 'Failed to start. See console for details.';
+        });
+    </script>
+
 </body>
 </html>
