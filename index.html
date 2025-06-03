@@ -40,11 +40,13 @@
         // Create a new connection
         const conn = await db.connect();
         // Prepare query
+        idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
         const stmt = await conn.prepare(
-          `SELECT v + ? FROM generate_series(0, 10000) AS t(v);`
+          `SELECT v + ? FROM ${idc_index_url} LIMIT 10;`
         );
+        
         // ... and run the query with materialized results
-        console.log((await stmt.query(234)).toArray());
+        console.log((await stmt.query()).toArray());
       });
       /*
       conn = await _db.connect()
@@ -64,6 +66,13 @@
       DOMParser {}
       doc = p.parseFromString(xmls, "text/xml")
 
+  
+
+      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+      x = new XMLHttpRequest()
+      x.open("GET", idc_index_url)
+      x.addEventListener("load", console.log)
+      x.send()
       */
 
     </script>
