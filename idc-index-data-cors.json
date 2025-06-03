@@ -1,0 +1,26 @@
+[
+    {
+      "origin": ["https://imagingdatacommons.github.io"],
+      "method": ["GET"],
+      "responseHeader": ["Content-Type"],
+      "maxAgeSeconds": 3600
+    },
+    {
+      "origin": ["https://portal.imaging.datacommons.cancer.gov"],
+      "method": ["GET"],
+      "responseHeader": ["Content-Type"],
+      "maxAgeSeconds": 3600
+    },
+    {
+      "origin": ["https://testing-portal.canceridc.dev"],
+      "method": ["GET"],
+      "responseHeader": ["Content-Type"],
+      "maxAgeSeconds": 3600
+    },
+    {
+      "origin": ["https://dev-portal.canceridc.dev"],
+      "method": ["GET"],
+      "responseHeader": ["Content-Type"],
+      "maxAgeSeconds": 3600
+    }
+]
