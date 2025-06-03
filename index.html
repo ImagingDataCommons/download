@@ -40,11 +40,12 @@
       console.log
 //      const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.15.0/src/hyparquet.min.js')
       
-      import hyparquet from 'https://cdn.jsdelivr.net/npm/hyparquet@1.15.0/+esm'
+      
+      const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.15.0/+esm')
 
       const url = 'https://hyperparam-public.s3.amazonaws.com/bunnies.parquet'
-      const file = await hyparquet.asyncBufferFromUrl({ url }) // wrap url for async fetching
-      const data = await hyparqet.parquetReadObjects({
+      const file = await asyncBufferFromUrl({ url }) // wrap url for async fetching
+      const data = await parquetReadObjects({
         file,
         columns: ['Breed Name', 'Lifespan'],
         rowStart: 10,
