@@ -41,7 +41,7 @@
         // Create a new connection
         const conn = await db.connect();
         // Prepare query
-        idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+        const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
         const stmt = await conn.prepare(
           `SELECT v + ? FROM ${idc_index_url} LIMIT 10;`
         );
