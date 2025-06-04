@@ -67,6 +67,24 @@
 
       console.log(idc_data)
 
+      x = new XMLHttpRequest()
+      x.open("GET", "https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=a464")
+      x.addEventListener("load", () => {
+        console.log("Loaded IDC index data")
+        parser = new DOMParser()
+        xmls = x.response.toString()
+        doc = parser.parseFromString(xmls, "text/xml")
+        console.log(doc)
+        const items = doc.querySelectorAll("Contents")
+        console.log("Items found:", items.length)
+        items.forEach((item) => {
+          const key = item.querySelector("Key").textContent
+          const size = item.querySelector("Size").textContent
+          console.log(`Key: ${key}, Size: ${size}`)
+        })
+      })
+      x.send()
+
       /*
       import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
       window.duckdbduckdbWasm = duckdbduckdbWasm;
