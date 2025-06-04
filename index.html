@@ -29,14 +29,44 @@
       idc_data = await hyparquet.parquetReadObjects({
         file: idc_index_file,
         columns: ['collection_id', 'PatientID', 'series_aws_url'],
-        rowStart: 10,
-        rowEnd: 20,
       })
 
+      const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
+      const collection_ids = new Set()
+      collectionQuery.forEach((o) => {collection_ids.add(o.collection_id)})
+      const collection_id = Array.from(collection_ids)[Math.floor(Math.random() * collection_ids.size)]
+      console.log("Random collection_id:", collection_id)
+      idc_data = idc_data.filter((o) => o.collection_id === collection_id)
+      console.log("Filtered IDC data for collection_id:", collection_id)
       console.log(idc_data)
 
+      const collection_PatientIDs = new Set()
+      idc_data.forEach((o) => {
+        collection_PatientIDs.add(o.PatientID)
+      })
+      const patient_id = Array.from(collection_PatientIDs)[Math.floor(Math.random() * collection_PatientIDs.size)]
+      console.log("Random PatientID:", patient_id)
+      idc_data = idc_data.filter((o) => o.PatientID === patient_id)
+      console.log("Filtered IDC data for PatientID:", patient_id)
+      console.log(idc_data)
+      const series_aws_urls = new Set()
+      idc_data.forEach((o) => {
+        series_aws_urls.add(o.series_aws_url)
+      })
+      const series_aws_url = Array.from(series_aws_urls)[Math.floor(Math.random() * series_aws_urls.size)]
+      console.log("Random series_aws_url:", series_aws_url)
+      const series_aws_url_parts = series_aws_url.split('/')
+      console.log("series_aws_url_parts:", series_aws_url_parts)
+      const query_prefix = series_aws_url_parts.slice(-1)[0]
+      console.log("Query prefix:", query_prefix)
+      const query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
+      console.log("Query URL:", query_url)
+      console.log("Fetching series data from:", series_aws_url)
+
+
       const x = new XMLHttpRequest()
-      x.open("GET", "https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=a464")
+      const s3_urls = []
+      x.open("GET", query_url, true)
       x.addEventListener("load", () => {
         console.log("Loaded IDC index data")
         const parser = new DOMParser()
@@ -47,9 +77,9 @@
         console.log("Items found:", items.length)
         items.forEach((item) => {
           const key = item.querySelector("Key").textContent
-          const size = item.querySelector("Size").textContent
-          console.log(`Key: ${key}, Size: ${size}`)
+          s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
         })
+        console.log("S3 URLs:", s3_urls)
       })
       x.send()
 
