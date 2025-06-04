@@ -10,7 +10,7 @@
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
-    let idc_data;
+    let idc_data, idc_index_file, ide_index_url;
     let hyparquet;
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync;
 
@@ -23,9 +23,9 @@
 
       hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
       
-      const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
-      const idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
+      idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
       idc_data = await hyparquet.parquetReadObjects({
         file: idc_index_file,
         columns: ['collection_id', 'PatientID', 'series_aws_url'],
