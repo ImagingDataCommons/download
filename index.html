@@ -55,6 +55,18 @@
       console.log(data)
 
 
+      const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+
+      const idc_index_file = await asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
+      const idc_data = await parquetReadObjects({
+        file: idc_index_file,
+        columns: ['collection_id', 'PatientID', 'series_aws_url'],
+        rowStart: 10,
+        rowEnd: 20,
+      })
+
+      console.log(idc_data)
+
       /*
       import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
       window.duckdbduckdbWasm = duckdbduckdbWasm;
