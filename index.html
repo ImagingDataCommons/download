@@ -80,6 +80,7 @@
           import { createNestedDirectories }  from './createNestedDirectories'
           self.onmessage = function(event) {
               console.log('Worker: Message received from main script:', event.data)
+              const collection_id = event.data.collection_id
               const s3_url = event.data.url
               const collection_id = event.data.collection_id || 'unknown_collection'
               response = await fetch(s3_url)
@@ -123,7 +124,7 @@
               console.log("worker done", event.data.path)
               const s3_url = s3_urls.pop()
               if (s3_url) {
-                  myWorker.postMessage({ url: s3_url })
+                  myWorker.postMessage({ url: s3_url, collection_id: collection_id })
               } else {
                   console.log("All S3 URLs processed.")
                   if (myWorker) myWorker.terminate()
