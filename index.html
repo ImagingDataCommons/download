@@ -84,6 +84,44 @@
       x.send()
 
 
+      let myWorkers = [];
+      let myWorker;
+      let workerObjectURL;
+
+      const workerCode = `
+          console.log('Worker: Script loaded and running.')
+          self.onmessage = function(event) {
+              console.log('Worker: Message received from main script:', event.data);
+              const s3_url = event.data.url;
+              self.postMessage({message: "done", path: s3_url});
+          };
+      `;
+      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' });
+      workerObjectURL = URL.createObjectURL(workerCodeBlob);
+
+      myWorker = new Worker(workerObjectURL);
+      myWorker.onmessage = function(event) {
+          console.log('Main: Message received from worker:', event.data);
+          if (event.data.message === 'done') {
+              console.log("worker done", event.data.path);
+          }
+      };
+
+      myWorker.onerror = function(error) {
+          console.error('Main: Error in worker:', error.message, error);
+          if (myWorker) myWorker.terminate();
+          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL);
+          myWorker = null;
+      };
+
+      myWorker.postMessage({ url: 'calculate'});
+
+      });
+
+
+
+      
+
     </script>
   </body>
 </html>
