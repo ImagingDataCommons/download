@@ -7,54 +7,11 @@
   </head>
   <body>
     <h1>IDC Download</h1>
-    <script>
-      /*
-      const getDb = async () => {
-        const duckdb = window.duckdbduckdbWasm;
-        // @ts-ignore
-        if (window._db) return window._db;
-        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
 
-        // Select a bundle based on browser checks
-        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-
-        const worker_url = URL.createObjectURL(
-          new Blob([`importScripts("${bundle.mainWorker}");`], {
-            type: "text/javascript",
-          })
-        );
-
-        // Instantiate the asynchronus version of DuckDB-wasm
-        const worker = new Worker(worker_url);
-        // const logger = null //new duckdb.ConsoleLogger();
-        const logger = new duckdb.ConsoleLogger();
-        const db = new duckdb.AsyncDuckDB(logger, worker);
-        await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-        URL.revokeObjectURL(worker_url);
-        window._db = db;
-        return db;
-      };
-      */
-    </script>
-    <script type="module">
+  <script type="module">
       console.log("Starting IDC download example...")
       const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
       
-      
-      //const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.15.0/+esm')
-
-      const url = 'https://hyperparam-public.s3.amazonaws.com/bunnies.parquet'
-      const file = await asyncBufferFromUrl({ url }) // wrap url for async fetching
-      const data = await parquetReadObjects({
-        file,
-        columns: ['Breed Name', 'Lifespan'],
-        rowStart: 10,
-        rowEnd: 20,
-      })
-
-      console.log(data)
-
-
       const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
       const idc_index_file = await asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
@@ -85,68 +42,6 @@
       })
       x.send()
 
-      /*
-      import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
-      window.duckdbduckdbWasm = duckdbduckdbWasm;
-      getDb().then(async (db) => {
-        // Create a new connection
-        const conn = await db.connect();
-        // Prepare query
-        const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
-        const stmt = await conn.prepare(
-          `SELECT * FROM ${idc_index_url} LIMIT 10;`
-        );
-        
-        // ... and run the query with materialized results
-        console.log((await stmt.query()).toArray());
-      });
-      */
-      /*
-      conn = await _db.connect()
-      r = await conn.query("SELECT * from read_parquet(['https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000000.parquet', 'https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000001.parquet']) LIMIT 1")
-      r.toArray().map((row) => row.toJSON())
-      r = await conn.query("SELECT DISTINCT collection_id from read_parquet(['https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000000.parquet', 'https://idc-open-metadata.s3.amazonaws.com/bigquery_export/idc_current/dicom_all/000000000001.parquet'])")
-      r.toArray().map((row) => row.toJSON())
-
-      x = new XMLHttpRequest()
-      x.open("GET", "https://idc-open-metadata.s3.amazonaws.com?max-keys=100000&prefix=bigquery_export/idc_current/dicom_all/")
-      x.addEventListener("load", console.log)
-      x.send()
-
-
-      xmls = x.response.toString()
-      p = new DOMParser()
-      DOMParser {}
-      doc = p.parseFromString(xmls, "text/xml")
-
-  
-
-      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
-      x = new XMLHttpRequest()
-      x.responseType = "arraybuffer"
-      x.open("GET", idc_index_url)
-      x.addEventListener("load", () => {
-        console.log("Loaded IDC index")        
-        getDb().then(async (db) => {
-          // Create a new connection
-          const conn = await db.connect();
-          // Prepare query
-          db.registerFileBuffer('idc_index.parquet', x.response);
-
-          const stmt = await conn.prepare(
-            `SELECT * FROM 'idc_index.parquet' LIMIT 10;`
-          );
-        
-          // ... and run the query with materialized results
-          console.log((await stmt.query()).toArray());
-      });
-      })
-      x.send()
-
-
-
-
-      */
 
     </script>
   </body>
