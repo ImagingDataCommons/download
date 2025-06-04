@@ -80,7 +80,6 @@
           import { createNestedDirectories }  from './createNestedDirectories'
           self.onmessage = function(event) {
               console.log('Worker: Message received from main script:', event.data)
-              const collection_id = event.data.collection_id
               const s3_url = event.data.url
               const collection_id = event.data.collection_id || 'unknown_collection'
               response = await fetch(s3_url)
@@ -97,11 +96,10 @@
               const studyInstanceUID = dataset.StudyInstanceUID || 'unknown_study'
               const seriesInstanceUID = dataset.SeriesInstanceUID || 'unknown_series'
               const patientID = dataset.PatientID || 'unknown_patient'
-              const filePath = `${collection_id}/${patientID}/${studyInstanceUID}/${seriesInstanceUID}/${sopInstanceUID}.dcm`
+              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
               const file = new File([blob], filename, { type: 'application/dicom' })
-              const filePathWithExtension = filePath + '.dcm'
               const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
                 create: true,
@@ -109,7 +107,7 @@
               const writable = await fileHandle.createWritable()
               await writable.write(modifiedArrayBuffer)
               await writable.close()
-              console.log('Worker: File written to:', filePathWithExtension)
+              console.log('Worker: File written to:', filePath)
 
               self.postMessage({message: "done", path: s3_url})
           };
