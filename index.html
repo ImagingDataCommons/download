@@ -10,7 +10,7 @@
 
   <script type="module">
       console.log("Starting IDC download example...")
-      import * as dcmjs from 'https://unpkg.com/dcmjs/build/dcmjs.mjs'
+      import * as dcmjs from 'https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js'
       console.log("dcmjs version:", dcmjs.version)
       console.log("dcmjs is loaded:", dcmjs)
       const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
@@ -27,7 +27,7 @@
 
       console.log(idc_data)
 
-      x = new XMLHttpRequest()
+      const x = new XMLHttpRequest()
       x.open("GET", "https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=a464")
       x.addEventListener("load", () => {
         console.log("Loaded IDC index data")
