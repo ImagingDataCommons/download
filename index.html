@@ -90,34 +90,33 @@
 
       const workerCode = `
           console.log('Worker: Script loaded and running.')
-          importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js');
-          console.log('Worker: dcmjs version:', dcmjs.version);
-          console.log('Worker: dcmjs is loaded:', dcmjs);
+          importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
+          importScripts('./createNestedDirectories.js')
           self.onmessage = function(event) {
-              console.log('Worker: Message received from main script:', event.data);
-              const s3_url = event.data.url;
-              self.postMessage({message: "done", path: s3_url});
+              console.log('Worker: Message received from main script:', event.data)
+              const s3_url = event.data.url
+              self.postMessage({message: "done", path: s3_url})
           };
       `;
-      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' });
-      workerObjectURL = URL.createObjectURL(workerCodeBlob);
+      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
+      workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
-      myWorker = new Worker(workerObjectURL);
+      myWorker = new Worker(workerObjectURL)
       myWorker.onmessage = function(event) {
-          console.log('Main: Message received from worker:', event.data);
+          console.log('Main: Message received from worker:', event.data)
           if (event.data.message === 'done') {
-              console.log("worker done", event.data.path);
+              console.log("worker done", event.data.path)
           }
       };
 
       myWorker.onerror = function(error) {
-          console.error('Main: Error in worker:', error.message, error);
-          if (myWorker) myWorker.terminate();
-          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL);
+          console.error('Main: Error in worker:', error.message, error)
+          if (myWorker) myWorker.terminate()
+          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
           myWorker = null;
       };
 
-      myWorker.postMessage({ url: 'calculate'});
+      myWorker.postMessage({ url: 'calculate'})
 
       
 
