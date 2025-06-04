@@ -11,7 +11,7 @@
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
     let idc_data;
-    let asyncBufferFromUrl, parquetReadObjects
+    let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync;
 
   </script>
 
@@ -19,7 +19,7 @@
       console.log("Starting IDC download example...")
       console.log("dcmjs version:", dcmjs.version)
       console.log("dcmjs is loaded:", dcmjs)
-      { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
+      { asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
       
       const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
