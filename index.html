@@ -154,7 +154,8 @@
           s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
         })
         console.log("S3 URLs:", s3_urls)
-        myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads      })
+        myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
+      })
       x.send()
 
 
