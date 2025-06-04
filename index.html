@@ -31,9 +31,9 @@
       x.open("GET", "https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=a464")
       x.addEventListener("load", () => {
         console.log("Loaded IDC index data")
-        parser = new DOMParser()
-        xmls = x.response.toString()
-        doc = parser.parseFromString(xmls, "text/xml")
+        const parser = new DOMParser()
+        const xmls = x.response.toString()
+        const doc = parser.parseFromString(xmls, "text/xml")
         console.log(doc)
         const items = doc.querySelectorAll("Contents")
         console.log("Items found:", items.length)
