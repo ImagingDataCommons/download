@@ -63,9 +63,84 @@
       console.log("Query URL:", query_url)
       console.log("Fetching series data from:", series_aws_url)
 
+      const directoryHandle = await window.showDirectoryPicker({
+          id: 'idc-downloads',
+          startIn: 'downloads',
+          mode: 'readwrite',
+      });
+
+      let myWorkers = [];
+      let myWorker;
+      let workerObjectURL
+      const s3_urls = []
+
+      const workerCode = `
+          console.log('Worker: Script loaded and running.')
+          importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
+          import { createNestedDirectories }  from './createNestedDirectories'
+          self.onmessage = function(event) {
+              console.log('Worker: Message received from main script:', event.data)
+              const s3_url = event.data.url
+              const collection_id = event.data.collection_id || 'unknown_collection'
+              response = await fetch(s3_url)
+              if (!response.ok) {
+                  console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
+                  self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
+                  return;
+              }
+              const arrayBuffer = await response.arrayBuffer()
+              console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
+              const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
+              console.log('Worker: DICOM dataset loaded:', dataset)
+              const sopInstanceUID = dataset.SOPInstanceUID || 'unknown_sop'
+              const studyInstanceUID = dataset.StudyInstanceUID || 'unknown_study'
+              const seriesInstanceUID = dataset.SeriesInstanceUID || 'unknown_series'
+              const patientID = dataset.PatientID || 'unknown_patient'
+              const filePath = `${collection_id}/${patientID}/${studyInstanceUID}/${seriesInstanceUID}/${sopInstanceUID}.dcm`
+              console.log('Worker: Full file path:', filePath)
+              const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
+              const file = new File([blob], filename, { type: 'application/dicom' })
+              const filePathWithExtension = filePath + '.dcm'
+              const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
+              const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
+                create: true,
+              })
+              const writable = await fileHandle.createWritable()
+              await writable.write(modifiedArrayBuffer)
+              await writable.close()
+              console.log('Worker: File written to:', filePathWithExtension)
+
+              self.postMessage({message: "done", path: s3_url})
+          };
+      `;
+      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
+      workerObjectURL = URL.createObjectURL(workerCodeBlob)
+
+      myWorker = new Worker(workerObjectURL)
+      myWorker.onmessage = function(event) {
+          console.log('Main: Message received from worker:', event.data)
+          if (event.data.message === 'done') {
+              console.log("worker done", event.data.path)
+              const s3_url = s3_urls.pop()
+              if (s3_url) {
+                  myWorker.postMessage({ url: s3_url })
+              } else {
+                  console.log("All S3 URLs processed.")
+                  if (myWorker) myWorker.terminate()
+                  if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+                  myWorker = null;
+              }
+          }
+      };
+
+      myWorker.onerror = function(error) {
+          console.error('Main: Error in worker:', error.message, error)
+          if (myWorker) myWorker.terminate()
+          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+          myWorker = null;
+      };
 
       const x = new XMLHttpRequest()
-      const s3_urls = []
       x.open("GET", query_url, true)
       x.addEventListener("load", () => {
         console.log("Loaded IDC index data")
@@ -80,43 +155,9 @@
           s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
         })
         console.log("S3 URLs:", s3_urls)
-      })
+        myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads      })
       x.send()
 
-
-      let myWorkers = [];
-      let myWorker;
-      let workerObjectURL;
-
-      const workerCode = `
-          console.log('Worker: Script loaded and running.')
-          importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
-          import { createNestedDirectories }  from './createNestedDirectories'
-          self.onmessage = function(event) {
-              console.log('Worker: Message received from main script:', event.data)
-              const s3_url = event.data.url
-              self.postMessage({message: "done", path: s3_url})
-          };
-      `;
-      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
-      workerObjectURL = URL.createObjectURL(workerCodeBlob)
-
-      myWorker = new Worker(workerObjectURL)
-      myWorker.onmessage = function(event) {
-          console.log('Main: Message received from worker:', event.data)
-          if (event.data.message === 'done') {
-              console.log("worker done", event.data.path)
-          }
-      };
-
-      myWorker.onerror = function(error) {
-          console.error('Main: Error in worker:', error.message, error)
-          if (myWorker) myWorker.terminate()
-          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-          myWorker = null;
-      };
-
-      myWorker.postMessage({ url: 'calculate'})
 
       
 
