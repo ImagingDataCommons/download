@@ -1,3 +1,6 @@
+Web site:
+
+https://imagingdatacommons.github.io/download
 
 To set the CORS config:
 
