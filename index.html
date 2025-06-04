@@ -8,6 +8,7 @@
   <body>
     <h1>IDC Download</h1>
 
+
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
     let idc_data, idc_index_file, idc_index_url;
@@ -63,16 +64,12 @@
       console.log("Query URL:", query_url)
       console.log("Fetching series data from:", series_aws_url)
 
-      const directoryHandle = await window.showDirectoryPicker({
-          id: 'idc-downloads',
-          startIn: 'downloads',
-          mode: 'readwrite',
-      });
 
       let myWorkers = [];
       let myWorker;
       let workerObjectURL
       const s3_urls = []
+      let directoryHandle;
 
       const workerCode = `
           console.log('Worker: Script loaded and running.')
@@ -81,6 +78,7 @@
           self.onmessage = function(event) {
               console.log('Worker: Message received from main script:', event.data)
               const s3_url = event.data.url
+              const directoryHandle = event.data.directoryHandle
               const collection_id = event.data.collection_id || 'unknown_collection'
               response = await fetch(s3_url)
               if (!response.ok) {
@@ -122,7 +120,7 @@
               console.log("worker done", event.data.path)
               const s3_url = s3_urls.pop()
               if (s3_url) {
-                  myWorker.postMessage({ url: s3_url, collection_id: collection_id })
+                  myWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
               } else {
                   console.log("All S3 URLs processed.")
                   if (myWorker) myWorker.terminate()
@@ -154,7 +152,19 @@
           s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
         })
         console.log("S3 URLs:", s3_urls)
-        myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
+
+        const downloadButton = document.createElement('button');
+        downloadButton.textContent = 'Download';
+        document.body.appendChild(downloadButton);
+        downloadButton.addEventListener("click", async () => {
+          directoryHandle = await window.showDirectoryPicker({
+              id: 'idc-downloads',
+              startIn: 'downloads',
+              mode: 'readwrite',
+          });
+          myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
+        });
+
       })
       x.send()
 
