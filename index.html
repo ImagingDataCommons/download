@@ -9,18 +9,22 @@
     <h1>IDC Download</h1>
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
-  
+  <script>
+    let idc_data;
+    let asyncBufferFromUrl, parquetReadObjects
+
+  </script>
+
   <script type="module">
       console.log("Starting IDC download example...")
-      //import * as dcmjs from 'https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js'
       console.log("dcmjs version:", dcmjs.version)
       console.log("dcmjs is loaded:", dcmjs)
-      const { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
+      { asyncBufferFromUrl, parquetReadObjects } = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
       
       const idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
       const idc_index_file = await asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
-      const idc_data = await parquetReadObjects({
+      idc_data = await parquetReadObjects({
         file: idc_index_file,
         columns: ['collection_id', 'PatientID', 'series_aws_url'],
         rowStart: 10,
