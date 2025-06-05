@@ -74,7 +74,7 @@
       const workerCode = `
           console.log('Worker: Script loaded and running.')
           importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
-          import { createNestedDirectories }  from './createNestedDirectories'
+          importScripts('createNestedDirectories.js')
           self.onmessage = function(event) {
               console.log('Worker: Message received from main script:', event.data)
               const s3_url = event.data.url
