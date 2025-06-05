@@ -122,7 +122,9 @@
               const studyInstanceUID = dataset.StudyInstanceUID || 'unknown_study'
               const seriesInstanceUID = dataset.SeriesInstanceUID || 'unknown_series'
               const patientID = dataset.PatientID || 'unknown_patient'
-              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
+              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID"].join("/")
+              console.log('Worker: Full file path:', filePath)
+              const fileName = sopInstanceUID + ".dcm"
               console.log('Worker: Full file path:', filePath)
               const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
