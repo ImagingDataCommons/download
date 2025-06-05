@@ -127,7 +127,7 @@
               const fileName = sopInstanceUID + ".dcm"
               console.log('Worker: Full file path:', filePath)
               console.log('Worker: directoryHandle:', directoryHandle)
-              const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
+              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath);
               console.log('Worker: subDirectoryHandle:', subDirectoryHandle)
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
                 create: true,
