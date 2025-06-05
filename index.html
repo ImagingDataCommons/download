@@ -86,7 +86,7 @@
                 currentDirectoryHandle = entry
               } catch (error) {
                 // If the error is specifically about the directory not existing, create it
-                if ((error as Error).name === 'NotFoundError') {
+                if (error .name === 'NotFoundError') {
                   const entry = await currentDirectoryHandle.getDirectoryHandle(segment, {
                     create: true,
                   })
