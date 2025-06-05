@@ -124,14 +124,12 @@
               const patientID = dataset.PatientID || 'unknown_patient'
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
-              const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
-              const file = new File([blob], filename, { type: 'application/dicom' })
               const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
                 create: true,
               })
               const writable = await fileHandle.createWritable()
-              await writable.write(modifiedArrayBuffer)
+              await writable.write(arrayBuffer)
               await writable.close()
               console.log('Worker: File written to:', filePath)
 
