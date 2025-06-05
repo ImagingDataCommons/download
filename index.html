@@ -118,15 +118,17 @@
               console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
               const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
               console.log('Worker: DICOM dataset loaded:', dataset)
-              const sopInstanceUID = dataset.SOPInstanceUID || 'unknown_sop'
-              const studyInstanceUID = dataset.StudyInstanceUID || 'unknown_study'
-              const seriesInstanceUID = dataset.SeriesInstanceUID || 'unknown_series'
-              const patientID = dataset.PatientID || 'unknown_patient'
+              const sopInstanceUID = dataset.dict.SOPInstanceUID || 'unknown_sop'
+              const studyInstanceUID = dataset.dict.StudyInstanceUID || 'unknown_study'
+              const seriesInstanceUID = dataset.dict.SeriesInstanceUID || 'unknown_series'
+              const patientID = dataset.dict.PatientID || 'unknown_patient'
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
               console.log('Worker: Full file path:', filePath)
               const fileName = sopInstanceUID + ".dcm"
               console.log('Worker: Full file path:', filePath)
+              console.log('Worker: directoryHandle:', directoryHandle)
               const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
+              console.log('Worker: subDirectoryHandle:', subDirectoryHandle)
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
                 create: true,
               })
