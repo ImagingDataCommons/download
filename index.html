@@ -140,7 +140,7 @@
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
               const file = new File([blob], fileName, { type: 'application/dicom' })
-              const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
+              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath);
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
               const writable = await fileHandle.createWritable()
               await writable.write(arrayBuffer)
