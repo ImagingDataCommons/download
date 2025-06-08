@@ -135,7 +135,7 @@
               const patientID = dicomValue(dict,"PatientID")
               const sopInstanceUID = dicomValue(dict,"SOPInstanceUID")
               const studyInstanceUID = dicomValue(dict,"StudyInstanceUID")
-              const seriesInstanceUID = dicomValue(dict,"SeriesInstanceUID)
+              const seriesInstanceUID = dicomValue(dict,"SeriesInstanceUID")
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
