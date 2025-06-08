@@ -106,7 +106,7 @@
 
           function dicomValue(dict,tagName) {
               let value = "Undefined-"+tagName
-              const entry = dcmjs.data.DicomMetaDictionary.nameMap[PatientID]
+              const entry = dcmjs.data.DicomMetaDictionary.nameMap[tagName]
               if (entry && entry.tag) {
                 const hexTag = entry.tag.replace("(","").replace(",","").replace(")","")
                 if (hexTag in dict) {
