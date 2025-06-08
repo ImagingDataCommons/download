@@ -101,7 +101,20 @@
             return currentDirectoryHandle
           }
 
+
           importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
+
+          function dicomValue(dict,tagName) {
+              let value = `Undefined-${tagName}`
+              const entry = dcmjs.data.DicomMetaDictionary.nameMap[PatientID]
+              if (entry && entry.tag) {
+                const hexTag = entry.tag.replace("(","").replace(",","").replace(")","")
+                if (hexTag in dict) {
+                  value = dict[hexTag].Value
+                }
+              }
+              return value
+          }
 
           self.onmessage = async function(event) {
               console.log('Worker: Message received from main script:', event.data)
@@ -119,14 +132,10 @@
               const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
               const dict = dcmjs.data.DicomMetaDictionary.dict
               console.log('Worker: DICOM dataset loaded:', dataset)
-              const patientIDtag = dcmjs.data.DicomMetaDictionary.nameMap.PatientID.tag.replace("(","").replace(",","").replace(")","")
-              const sopInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SOPInstanceUID.tag.replace("(","").replace(",","").replace(")","")
-              const studyInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.StudyInstanceUID.tag.replace("(","").replace(",","").replace(")","")
-              const seriesInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SeriesInstanceUID.tag.replace("(","").replace(",","").replace(")","")
-              const sopInstanceUID = dict[sopInstanceUIDtag] || 'unknown_sop'
-              const studyInstanceUID = dict[studyInstanceUIDtag] || 'unknown_study'
-              const seriesInstanceUID = dict[seriesInstanceUIDtag] || 'unknown_series'
-              const patientID = dict[patientIDtag] || 'unknown_patient'
+              const patientID = dicomValue(dict,"PatientID")
+              const sopInstanceUID = dicomValue(dict,"SOPInstanceUID")
+              const studyInstanceUID = dicomValue(dict,"StudyInstanceUID")
+              const seriesInstanceUID = dicomValue(dict,"SeriesInstanceUID)
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
