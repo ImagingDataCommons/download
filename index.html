@@ -104,13 +104,13 @@
 
           importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
 
-          function dicomValue(dict,tagName) {
+          function dicomValue(dataset,tagName) {
               let value = "Undefined-"+tagName
               const entry = dcmjs.data.DicomMetaDictionary.nameMap[tagName]
               if (entry && entry.tag) {
                 const hexTag = entry.tag.replace("(","").replace(",","").replace(")","")
-                if (hexTag in dict) {
-                  value = dict[hexTag].Value
+                if (hexTag in dataset.dict) {
+                  value = dataset.dict[hexTag].Value
                 }
               }
               return value
@@ -130,12 +130,11 @@
               const arrayBuffer = await response.arrayBuffer()
               console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
               const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
-              const dict = dcmjs.data.DicomMetaDictionary.dict
               console.log('Worker: DICOM dataset loaded:', dataset)
-              const patientID = dicomValue(dict,"PatientID")
-              const sopInstanceUID = dicomValue(dict,"SOPInstanceUID")
-              const studyInstanceUID = dicomValue(dict,"StudyInstanceUID")
-              const seriesInstanceUID = dicomValue(dict,"SeriesInstanceUID")
+              const patientID = dicomValue(dataset,"PatientID")
+              const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
+              const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
+              const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
