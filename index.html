@@ -117,18 +117,21 @@
               const arrayBuffer = await response.arrayBuffer()
               console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
               const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
+              const dicts = dcmjs.data.DicomMetaDictionary.dict
               console.log('Worker: DICOM dataset loaded:', dataset)
-              const sopInstanceUID = dataset.dict.SOPInstanceUID || 'unknown_sop'
-              const studyInstanceUID = dataset.dict.StudyInstanceUID || 'unknown_study'
-              const seriesInstanceUID = dataset.dict.SeriesInstanceUID || 'unknown_series'
-              const patientID = dataset.dict.PatientID || 'unknown_patient'
-              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
+              const patientIDtag = dcmjs.data.DicomMetaDictionary.nameMap.PatientID.tag.replace("(","").replace(",","").replace(")","")
+              const sopInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SOPInstanceUID.tag.replace("(","").replace(",","").replace(")","")
+              const studyInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.StudyInstanceUID.tag.replace("(","").replace(",","").replace(")","")
+              const seriesInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SeriesInstanceID.tag.replace("(","").replace(",","").replace(")","")
+              const sopInstanceUID = dict[sopInstanceUIDtag] || 'unknown_sop'
+              const studyInstanceUID = dict[studyInstanceUIDtag] || 'unknown_study'
+              const seriesInstanceUID = dict[seriesInstanceUIDtag] || 'unknown_series'
+              const patientID = dict[patientIDtag] || 'unknown_patient'
+              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID,sopInstanceUID,".dcm"].join("/")
               console.log('Worker: Full file path:', filePath)
-              const fileName = sopInstanceUID + ".dcm"
-              console.log('Worker: Full file path:', filePath)
-              console.log('Worker: directoryHandle:', directoryHandle)
-              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath);
-              console.log('Worker: subDirectoryHandle:', subDirectoryHandle)
+              const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
+              const file = new File([blob], filename, { type: 'application/dicom' })
+              const subDirectoryHandle = createNestedDirectories(directoryHandle, filePath);
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, {
                 create: true,
               })
