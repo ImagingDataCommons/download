@@ -122,7 +122,7 @@
               const patientIDtag = dcmjs.data.DicomMetaDictionary.nameMap.PatientID.tag.replace("(","").replace(",","").replace(")","")
               const sopInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SOPInstanceUID.tag.replace("(","").replace(",","").replace(")","")
               const studyInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.StudyInstanceUID.tag.replace("(","").replace(",","").replace(")","")
-              const seriesInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SeriesInstanceID.tag.replace("(","").replace(",","").replace(")","")
+              const seriesInstanceUIDtag = dcmjs.data.DicomMetaDictionary.nameMap.SeriesInstanceUID.tag.replace("(","").replace(",","").replace(")","")
               const sopInstanceUID = dict[sopInstanceUIDtag] || 'unknown_sop'
               const studyInstanceUID = dict[studyInstanceUIDtag] || 'unknown_study'
               const seriesInstanceUID = dict[seriesInstanceUIDtag] || 'unknown_series'
