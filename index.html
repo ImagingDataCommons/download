@@ -203,7 +203,7 @@
       let directoryHandle
 
       let workerCount = navigator.hardwareConcurrency
-      workerCount = 2
+      workerCount = 4
       for (let i = 0; i < workerCount; i++) {
         downloadWorker = new Worker(workerObjectURL)
         downloadWorker.onmessage = function(event) {
