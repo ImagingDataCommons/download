@@ -16,7 +16,7 @@
     let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url
     let hyparquet
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
-    let query_prefix, query_url
+    let query_prefix, query_url, collection_id
   </script>
 
   <script type="module">
@@ -88,7 +88,7 @@
         }
       } else {
         // Pick a random series to download
-        const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
+        collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
         console.log("Random collection_id:", collection_id)
         idc_data = idc_data.filter((o) => o.collection_id === collection_id)
         console.log("Filtered IDC data for collection_id:", collection_id)
