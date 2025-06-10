@@ -117,12 +117,6 @@
       query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
       console.log("Query URL:", query_url)
 
-      let downloadWorkers = []
-      let downloadWorker
-      let workerObjectURL
-      const s3_urls = []
-      let directoryHandle
-
       const workerCode = `
           console.log('Worker: Script loaded and running.')
           
@@ -203,29 +197,43 @@
       const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
       workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
-      downloadWorker = new Worker(workerObjectURL)
-      downloadWorker.onmessage = function(event) {
-          console.log('Main: Message received from worker:', event.data)
-          if (event.data.message === 'done') {
-              statusMessage(`${event.data.path} downloaded to {event.data.localFilePath}`)
-              const s3_url = s3_urls.pop()
-              if (s3_url) {
-                  downloadWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
-              } else {
-                  statusMessage("All S3 URLs processed.")
-                  if (downloadWorker) downloadWorker.terminate()
-                  if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-                  downloadWorker = null
-              }
-          }
-      }
+      let downloadWorkers = []
+      let downloadWorker
+      let workerObjectURL
+      const s3_urls = []
+      let directoryHandle
 
-      downloadWorker.onerror = function(error) {
-          console.error('Main: Error in worker:', error.message, error)
-          if (downloadWorker) downloadWorker.terminate()
-          if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-          downloadWorker = null
+      for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+        downloadWorker = new Worker(workerObjectURL)
+        downloadWorker.onmessage = function(event) {
+            console.log('Main: Message received from worker:', event.data)
+            if (event.data.message === 'done' || event.data.message === 'start') {
+                if (event.data.message === 'done') {
+                  statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}`)
+                }
+                const s3_url = s3_urls.pop()
+                if (s3_url) {
+                    downloadWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
+                } else {
+                    if (downloadWorker) downloadWorker.terminate()
+                    downloadWorkers = downloadWorkers.filter(worker => worker !== downloadWorker)
+                    if (downloadWorkers.length == 0) {
+                      statusMessage("All S3 URLs processed.")
+                      if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+                    }
+                    downloadWorker = null
+                }
+            }
+        }
+        downloadWorker.onerror = function(error) {
+            console.error('Main: Error in worker:', error.message, error)
+            if (downloadWorker) downloadWorker.terminate()
+            if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+            downloadWorker = null
+        }
+        downloadWorkers.push(downloadWorker)
       }
+      statusMessage(`Using ${downloadWorkers.length} workers`)
 
       const x = new XMLHttpRequest()
       x.open("GET", query_url, true)
@@ -252,7 +260,10 @@
               startIn: 'downloads',
               mode: 'readwrite',
           })
-          downloadWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
+          statusMessage("Manifest downloaded")
+          downloadWorkers.forEach(downloadWorker => {
+            downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
+          })
         })
 
       })
