@@ -203,7 +203,7 @@
       let directoryHandle
 
       let workerCount = navigator.hardwareConcurrency
-      workerCount = 1
+      workerCount = 2
       for (let i = 0; i < workerCount; i++) {
         downloadWorker = new Worker(workerObjectURL)
         downloadWorker.onmessage = function(event) {
@@ -250,6 +250,7 @@
           s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
         })
         console.log("S3 URLs:", s3_urls)
+        statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
 
         const downloadButton = document.createElement('button')
         downloadButton.textContent = 'Download'
@@ -260,7 +261,6 @@
               startIn: 'downloads',
               mode: 'readwrite',
           })
-          statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
           downloadWorkers.forEach(downloadWorker => {
             downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
           })
