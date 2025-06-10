@@ -209,7 +209,7 @@
         downloadWorker.onmessage = function(event) {
             if (event.data.message === 'done' || event.data.message === 'start') {
                 if (event.data.message === 'done') {
-                  statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls} remaining`)
+                  statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
                 }
                 const s3_url = s3_urls.pop()
                 if (s3_url) {
