@@ -11,10 +11,9 @@
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
-    let idc_data, idc_index_file, idc_index_url;
+    let collection_ids, idc_data, idc_index_file, idc_index_url;
     let hyparquet;
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync;
-
   </script>
 
   <script type="module">
@@ -23,18 +22,52 @@
       console.log("dcmjs is loaded:", dcmjs)
 
       hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
-      
-      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
-      idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
-      idc_data = await hyparquet.parquetReadObjects({
-        file: idc_index_file,
-        columns: ['collection_id', 'PatientID', 'series_aws_url'],
-      })
+      // TODO: check to see if collection_ids and idc_data can be read from local storage, and if so, load them
+      // otherwise, get them from the URL
 
-      const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
-      const collection_ids = new Set()
-      collectionQuery.forEach((o) => {collection_ids.add(o.collection_id)})
+      function readFileAsync(blob) {
+        return new Promise((resolve, reject) => {
+          let reader = new FileReader();
+          reader.onload = () => { resolve(reader.result); };
+          reader.onerror = reject;
+          reader.readAsText(blob);
+        })
+      }
+
+      const cache = await caches.open('idc-download')
+      const request = new Request('idc_data.json')
+      const response = await cache.match(request)
+
+      if (response) {
+        console.log("Reading from cache")
+        console.log(response)
+        const cachedBlob = await response.blob()
+        const cachedJSON = await readFileAsync(cachedBlob)
+        collection_ids, idc_data = JSON.parse(cachedJSON)
+        console.log("Data restored")
+      } else {
+        console.log("Downloading")
+
+        idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+
+        idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
+        idc_data = await hyparquet.parquetReadObjects({
+          file: idc_index_file,
+          columns: ['collection_id', 'PatientID', 'series_aws_url'],
+        })
+
+        const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
+        const collection_ids = new Set()
+        collectionQuery.forEach((o) => {collection_ids.add(o.collection_id)})
+
+        const jsonString = JSON.stringify([collection_ids, idc_data])
+        const jsonBlob = new Blob([jsonString], {type: "application/json"})
+        await cache.put(request, new Response(jsonBlob));
+        console.log("Saved to cache")
+      }
+
+
       const collection_id = Array.from(collection_ids)[Math.floor(Math.random() * collection_ids.size)]
       console.log("Random collection_id:", collection_id)
       idc_data = idc_data.filter((o) => o.collection_id === collection_id)
