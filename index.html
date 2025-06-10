@@ -11,33 +11,31 @@
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
-    let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url;
-    let hyparquet;
-    let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync;
+    // some variables at window level to simplify debugging
+    let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url
+    let hyparquet
+    let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
   </script>
 
   <script type="module">
       console.log("Starting IDC download example...")
-      console.log("dcmjs version:", dcmjs.version)
-      console.log("dcmjs is loaded:", dcmjs)
 
-
+      // wrap reader in promise so we can await it
       function readFileAsync(blob) {
         return new Promise((resolve, reject) => {
-          let reader = new FileReader();
-          reader.onload = () => { resolve(reader.result); };
-          reader.onerror = reject;
-          reader.readAsText(blob);
+          let reader = new FileReader()
+          reader.onload = () => { resolve(reader.result) }
+          reader.onerror = reject
+          reader.readAsText(blob)
         })
       }
 
+      // either read from cache or download
       const cache = await caches.open('idc-download')
       const request = new Request('idc_data.json')
       const response = await cache.match(request)
-
       if (response) {
         console.log("Reading from cache")
-        console.log(response)
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
         cachedData = JSON.parse(cachedJSON)
@@ -46,28 +44,25 @@
         console.log("Data restored")
       } else {
         console.log("Downloading")
-
         hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
         idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
-
         idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
         idc_data = await hyparquet.parquetReadObjects({
           file: idc_index_file,
           columns: ['collection_id', 'PatientID', 'series_aws_url'],
         })
-
         const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
         const collection_ids_set = new Set()
         collectionQuery.forEach((o) => {collection_ids_set.add(o.collection_id)})
         collection_ids = Array.from(collection_ids_set)
-
+        // save to cache
         const jsonString = JSON.stringify({collection_ids, idc_data})
         const jsonBlob = new Blob([jsonString], {type: "application/json"})
-        await cache.put(request, new Response(jsonBlob));
-        console.log("Saved to cache")
+        await cache.put(request, new Response(jsonBlob))
+        console.log("Downloaded and saved to cache")
       }
 
-
+      // Pick a random series to download
       const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
       console.log("Random collection_id:", collection_id)
       idc_data = idc_data.filter((o) => o.collection_id === collection_id)
@@ -98,11 +93,11 @@
       console.log("Fetching series data from:", series_aws_url)
 
 
-      let myWorkers = [];
-      let myWorker;
+      let myWorkers = []
+      let myWorker
       let workerObjectURL
       const s3_urls = []
-      let directoryHandle;
+      let directoryHandle
 
       const workerCode = `
           console.log('Worker: Script loaded and running.')
@@ -134,7 +129,6 @@
             return currentDirectoryHandle
           }
 
-
           importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
 
           function dicomValue(dataset,tagName) {
@@ -158,7 +152,7 @@
               if (!response.ok) {
                   console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
                   self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
-                  return;
+                  return
               }
               const arrayBuffer = await response.arrayBuffer()
               console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
@@ -173,7 +167,7 @@
               console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
               const file = new File([blob], fileName, { type: 'application/dicom' })
-              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath);
+              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
               const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
               const writable = await fileHandle.createWritable()
               await writable.write(arrayBuffer)
@@ -181,8 +175,8 @@
               console.log('Worker: File written to:', filePath)
 
               self.postMessage({message: "done", path: s3_url})
-          };
-      `;
+          }
+      `
       const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
       workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
@@ -198,17 +192,17 @@
                   console.log("All S3 URLs processed.")
                   if (myWorker) myWorker.terminate()
                   if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-                  myWorker = null;
+                  myWorker = null
               }
           }
-      };
+      }
 
       myWorker.onerror = function(error) {
           console.error('Main: Error in worker:', error.message, error)
           if (myWorker) myWorker.terminate()
           if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-          myWorker = null;
-      };
+          myWorker = null
+      }
 
       const x = new XMLHttpRequest()
       x.open("GET", query_url, true)
@@ -226,17 +220,17 @@
         })
         console.log("S3 URLs:", s3_urls)
 
-        const downloadButton = document.createElement('button');
-        downloadButton.textContent = 'Download';
-        document.body.appendChild(downloadButton);
+        const downloadButton = document.createElement('button')
+        downloadButton.textContent = 'Download'
+        document.body.appendChild(downloadButton)
         downloadButton.addEventListener("click", async () => {
           directoryHandle = await window.showDirectoryPicker({
               id: 'idc-downloads',
               startIn: 'downloads',
               mode: 'readwrite',
-          });
+          })
           myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
-        });
+        })
 
       })
       x.send()
