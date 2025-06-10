@@ -11,7 +11,7 @@
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
   <script>
-    let collection_ids, idc_data, idc_index_file, idc_index_url;
+    let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url;
     let hyparquet;
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync;
   </script>
@@ -21,10 +21,6 @@
       console.log("dcmjs version:", dcmjs.version)
       console.log("dcmjs is loaded:", dcmjs)
 
-      hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
-
-      // TODO: check to see if collection_ids and idc_data can be read from local storage, and if so, load them
-      // otherwise, get them from the URL
 
       function readFileAsync(blob) {
         return new Promise((resolve, reject) => {
@@ -44,13 +40,14 @@
         console.log(response)
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
-        const cachedData = JSON.parse(cachedJSON)
+        cachedData = JSON.parse(cachedJSON)
         collection_ids = cachedData[0]
         idc_data = cachedData[1]
         console.log("Data restored")
       } else {
         console.log("Downloading")
 
+        hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
         idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
 
         idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
