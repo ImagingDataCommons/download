@@ -25,7 +25,7 @@
       function statusMessage(message) {
         const messageP = document.createElement("p")
         messageP.innerText = message
-        document.body.appendChild(messgeP)
+        document.body.appendChild(messageP)
       }
 
       // wrap reader in promise so we can await it
@@ -76,7 +76,6 @@
         const urlParams = new URLSearchParams(urlString)
         const seriesInstanceUID = urlParams.get('seriesInstanceUID')
         console.log("Want to download ", seriesInstanceUID)
-
       } else {
         // Pick a random series to download
         const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
