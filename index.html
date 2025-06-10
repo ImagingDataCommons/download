@@ -202,7 +202,9 @@
       const s3_urls = []
       let directoryHandle
 
-      for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+      let workerCount = navigator.hardwareConcurrency
+      workerCount = 1
+      for (let i = 0; i < workerCount; i++) {
         downloadWorker = new Worker(workerObjectURL)
         downloadWorker.onmessage = function(event) {
             if (event.data.message === 'done' || event.data.message === 'start') {
