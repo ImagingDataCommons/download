@@ -82,6 +82,9 @@
             const series_aws_url_parts = o.series_aws_url.split('/')
             const query_prefix = series_aws_url_parts.slice(-2)[0]
           }
+        })
+        if (!query_prefix) {
+          statusMessage(`Could not find seriesInstanceUID from url (${seriesInstanceUID})`)
         }
       } else {
         // Pick a random series to download
