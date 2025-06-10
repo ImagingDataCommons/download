@@ -195,11 +195,10 @@
           }
       `
       const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
-      workerObjectURL = URL.createObjectURL(workerCodeBlob)
+      const workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
       let downloadWorkers = []
       let downloadWorker
-      let workerObjectURL
       const s3_urls = []
       let directoryHandle
 
