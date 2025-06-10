@@ -258,7 +258,7 @@
               startIn: 'downloads',
               mode: 'readwrite',
           })
-          statusMessage(`Manifest downloaded, ${s3_urls.length} downloads)
+          statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
           downloadWorkers.forEach(downloadWorker => {
             downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
           })
