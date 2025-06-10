@@ -44,7 +44,9 @@
         console.log(response)
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
-        collection_ids, idc_data = JSON.parse(cachedJSON)
+        const cachedData = JSON.parse(cachedJSON)
+        collection_ids = cachedData[0]
+        idc_data = cachedData[1]
         console.log("Data restored")
       } else {
         console.log("Downloading")
@@ -69,7 +71,7 @@
       }
 
 
-      const collection_id = Array.from(collection_ids)[Math.floor(Math.random() * collection_ids.size)]
+      const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
       console.log("Random collection_id:", collection_id)
       idc_data = idc_data.filter((o) => o.collection_id === collection_id)
       console.log("Filtered IDC data for collection_id:", collection_id)
