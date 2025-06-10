@@ -41,8 +41,7 @@
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
         cachedData = JSON.parse(cachedJSON)
-        collection_ids = cachedData[0]
-        idc_data = cachedData[1]
+        {collection_ids, idc_data} = cachedData
         console.log("Data restored")
       } else {
         console.log("Downloading")
@@ -61,7 +60,7 @@
         collectionQuery.forEach((o) => {collection_ids_set.add(o.collection_id)})
         collection_ids = Array.from(collection_ids_set)
 
-        const jsonString = JSON.stringify([collection_ids, idc_data])
+        const jsonString = JSON.stringify({collection_ids, idc_data})
         const jsonBlob = new Blob([jsonString], {type: "application/json"})
         await cache.put(request, new Response(jsonBlob));
         console.log("Saved to cache")
