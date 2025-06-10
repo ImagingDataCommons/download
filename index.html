@@ -7,6 +7,7 @@
   </head>
   <body>
     <h1>IDC Download</h1>
+    <div id="downloads"></div>
 
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
@@ -20,7 +21,15 @@
   <script type="module">
       console.log("Starting IDC download example...")
 
+      // feedback on the page
+      function statusMessage(message) {
+        const messageP = document.createElement("p")
+        messageP.innerText = message
+        document.body.appendChild(messgeP)
+      }
+
       // wrap reader in promise so we can await it
+      // https://gist.github.com/yoojinyoung/d6e615791f6dff6b72a7774c45ce6ab2
       function readFileAsync(blob) {
         return new Promise((resolve, reject) => {
           let reader = new FileReader()
@@ -35,21 +44,21 @@
       const request = new Request('idc_data.json')
       const response = await cache.match(request)
       if (response) {
-        console.log("Reading from cache")
+        statusMessage("Reading from cache")
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
         cachedData = JSON.parse(cachedJSON)
         collection_ids = cachedData.collection_ids
         idc_data = cachedData.idc_data
-        console.log("Data restored")
+        statusMessage("Data restored")
       } else {
-        console.log("Downloading")
+        statusMessage("Downloading IDC data - will be cached for faster load next time...")
         hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
         idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
         idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
         idc_data = await hyparquet.parquetReadObjects({
           file: idc_index_file,
-          columns: ['collection_id', 'PatientID', 'series_aws_url'],
+          columns: ['collection_id', 'PatientID', 'StudyInstanceUID', 'SeriesInstanceUID', 'series_aws_url'],
         })
         const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
         const collection_ids_set = new Set()
@@ -59,42 +68,50 @@
         const jsonString = JSON.stringify({collection_ids, idc_data})
         const jsonBlob = new Blob([jsonString], {type: "application/json"})
         await cache.put(request, new Response(jsonBlob))
-        console.log("Downloaded and saved to cache")
+        statusMessage("Downloaded and saved to cache")
       }
 
-      // Pick a random series to download
-      const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
-      console.log("Random collection_id:", collection_id)
-      idc_data = idc_data.filter((o) => o.collection_id === collection_id)
-      console.log("Filtered IDC data for collection_id:", collection_id)
-      console.log(idc_data)
+      const urlString = window.location.search
+      if (urlString != '') {
+        const urlParams = new URLSearchParams(urlString)
+        const seriesInstanceUID = urlParams.get('seriesInstanceUID')
+        console.log("Want to download ", seriesInstanceUID)
 
-      const collection_PatientIDs = new Set()
-      idc_data.forEach((o) => {
-        collection_PatientIDs.add(o.PatientID)
-      })
-      const patient_id = Array.from(collection_PatientIDs)[Math.floor(Math.random() * collection_PatientIDs.size)]
-      console.log("Random PatientID:", patient_id)
-      idc_data = idc_data.filter((o) => o.PatientID === patient_id)
-      console.log("Filtered IDC data for PatientID:", patient_id)
-      console.log(idc_data)
-      const series_aws_urls = new Set()
-      idc_data.forEach((o) => {
-        series_aws_urls.add(o.series_aws_url)
-      })
-      const series_aws_url = Array.from(series_aws_urls)[Math.floor(Math.random() * series_aws_urls.size)]
-      console.log("Random series_aws_url:", series_aws_url)
-      const series_aws_url_parts = series_aws_url.split('/')
-      console.log("series_aws_url_parts:", series_aws_url_parts)
-      const query_prefix = series_aws_url_parts.slice(-2)[0]
-      console.log("Query prefix:", query_prefix)
-      const query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
-      console.log("Query URL:", query_url)
-      console.log("Fetching series data from:", series_aws_url)
+      } else {
+        // Pick a random series to download
+        const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
+        console.log("Random collection_id:", collection_id)
+        idc_data = idc_data.filter((o) => o.collection_id === collection_id)
+        console.log("Filtered IDC data for collection_id:", collection_id)
+        console.log(idc_data)
+
+        const collection_PatientIDs = new Set()
+        idc_data.forEach((o) => {
+          collection_PatientIDs.add(o.PatientID)
+        })
+        const patient_id = Array.from(collection_PatientIDs)[Math.floor(Math.random() * collection_PatientIDs.size)]
+        console.log("Random PatientID:", patient_id)
+        idc_data = idc_data.filter((o) => o.PatientID === patient_id)
+        console.log("Filtered IDC data for PatientID:", patient_id)
+        console.log(idc_data)
+        const series_aws_urls = new Set()
+        idc_data.forEach((o) => {
+          series_aws_urls.add(o.series_aws_url)
+        })
+        const series_aws_url = Array.from(series_aws_urls)[Math.floor(Math.random() * series_aws_urls.size)]
+        console.log("Random series_aws_url:", series_aws_url)
+        const series_aws_url_parts = series_aws_url.split('/')
+        console.log("series_aws_url_parts:", series_aws_url_parts)
+        const query_prefix = series_aws_url_parts.slice(-2)[0]
+        console.log("Query prefix:", query_prefix)
+        const query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
+        console.log("Query URL:", query_url)
+        console.log("Fetching series data from:", series_aws_url)
+      }
 
 
-      let myWorkers = []
-      let myWorker
+      let downloadWorkers = []
+      let downloadWorker
       let workerObjectURL
       const s3_urls = []
       let directoryHandle
@@ -164,7 +181,6 @@
               const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
               const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
               const fileName = sopInstanceUID + ".dcm"
-              console.log('Worker: Full file path:', filePath)
               const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
               const file = new File([blob], fileName, { type: 'application/dicom' })
               const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
@@ -174,34 +190,34 @@
               await writable.close()
               console.log('Worker: File written to:', filePath)
 
-              self.postMessage({message: "done", path: s3_url})
+              self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
           }
       `
       const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
       workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
-      myWorker = new Worker(workerObjectURL)
-      myWorker.onmessage = function(event) {
+      downloadWorker = new Worker(workerObjectURL)
+      downloadWorker.onmessage = function(event) {
           console.log('Main: Message received from worker:', event.data)
           if (event.data.message === 'done') {
-              console.log("worker done", event.data.path)
+              statusMessage(`${event.data.path} downloaded to {event.data.localFilePath}`)
               const s3_url = s3_urls.pop()
               if (s3_url) {
-                  myWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
+                  downloadWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
               } else {
-                  console.log("All S3 URLs processed.")
-                  if (myWorker) myWorker.terminate()
+                  statusMessage("All S3 URLs processed.")
+                  if (downloadWorker) downloadWorker.terminate()
                   if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-                  myWorker = null
+                  downloadWorker = null
               }
           }
       }
 
-      myWorker.onerror = function(error) {
+      downloadWorker.onerror = function(error) {
           console.error('Main: Error in worker:', error.message, error)
-          if (myWorker) myWorker.terminate()
+          if (downloadWorker) downloadWorker.terminate()
           if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-          myWorker = null
+          downloadWorker = null
       }
 
       const x = new XMLHttpRequest()
@@ -229,7 +245,7 @@
               startIn: 'downloads',
               mode: 'readwrite',
           })
-          myWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
+          downloadWorker.onmessage({data: {message: "done", path: "starting"}}) // start the downloads
         })
 
       })
