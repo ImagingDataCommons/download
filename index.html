@@ -41,7 +41,8 @@
         const cachedBlob = await response.blob()
         const cachedJSON = await readFileAsync(cachedBlob)
         cachedData = JSON.parse(cachedJSON)
-        {collection_ids, idc_data} = cachedData
+        collection_ids = cachedData.collection_ids
+        idc_data = cachedData.idc_data
         console.log("Data restored")
       } else {
         console.log("Downloading")
