@@ -58,8 +58,9 @@
         })
 
         const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
-        const collection_ids = new Set()
-        collectionQuery.forEach((o) => {collection_ids.add(o.collection_id)})
+        const collection_ids_set = new Set()
+        collectionQuery.forEach((o) => {collection_ids_set.add(o.collection_id)})
+        collection_ids = Array.from(collection_ids_set)
 
         const jsonString = JSON.stringify([collection_ids, idc_data])
         const jsonBlob = new Blob([jsonString], {type: "application/json"})
