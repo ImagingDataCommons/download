@@ -205,7 +205,6 @@
       for (let i = 0; i < navigator.hardwareConcurrency; i++) {
         downloadWorker = new Worker(workerObjectURL)
         downloadWorker.onmessage = function(event) {
-            console.log('Main: Message received from worker:', event.data)
             if (event.data.message === 'done' || event.data.message === 'start') {
                 if (event.data.message === 'done') {
                   statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}`)
@@ -259,7 +258,7 @@
               startIn: 'downloads',
               mode: 'readwrite',
           })
-          statusMessage("Manifest downloaded")
+          statusMessage(`Manifest downloaded, ${s3_urls.length} downloads)
           downloadWorkers.forEach(downloadWorker => {
             downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
           })
