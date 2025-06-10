@@ -16,6 +16,7 @@
     let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url
     let hyparquet
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
+    let query_prefix, query_url
   </script>
 
   <script type="module">
@@ -76,6 +77,12 @@
         const urlParams = new URLSearchParams(urlString)
         const seriesInstanceUID = urlParams.get('seriesInstanceUID')
         console.log("Want to download ", seriesInstanceUID)
+        idc_data.forEach((o) => {
+          if (o.SeriesInstanceUID == seriesInstanceUID) {
+            const series_aws_url_parts = o.series_aws_url.split('/')
+            const query_prefix = series_aws_url_parts.slice(-2)[0]
+          }
+        }
       } else {
         // Pick a random series to download
         const collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
@@ -103,10 +110,10 @@
         console.log("series_aws_url_parts:", series_aws_url_parts)
         const query_prefix = series_aws_url_parts.slice(-2)[0]
         console.log("Query prefix:", query_prefix)
-        const query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
-        console.log("Query URL:", query_url)
-        console.log("Fetching series data from:", series_aws_url)
       }
+      query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
+      console.log("Query URL:", query_url)
+      console.log("Fetching series data from:", series_aws_url)
 
 
       let downloadWorkers = []
