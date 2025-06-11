@@ -17,6 +17,9 @@
     let hyparquet
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
     let query_prefix, query_url, collection_id
+    let downloadWorkers = []
+    let downloadWorker
+    const s3_urls = []
   </script>
 
   <script type="module">
@@ -197,9 +200,6 @@
       const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
       const workerObjectURL = URL.createObjectURL(workerCodeBlob)
 
-      let downloadWorkers = []
-      let downloadWorker
-      const s3_urls = []
       let directoryHandle
 
       let workerCount = navigator.hardwareConcurrency
