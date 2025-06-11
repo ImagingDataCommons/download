@@ -17,7 +17,7 @@
     let hyparquet
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
     let query_prefix, query_url, collection_id
-    let downloadWorkers = []
+    const downloadWorkers = []
     let downloadWorker
     const s3_urls = []
   </script>
@@ -217,6 +217,7 @@
                 } else {
                     if (downloadWorker) downloadWorker.terminate()
                     downloadWorkers = downloadWorkers.filter(worker => worker !== downloadWorker)
+                    console.log(`${downloadWorkers.length} workers still active`)
                     if (downloadWorkers.length == 0) {
                       statusMessage("All S3 URLs processed.")
                       if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
