@@ -205,7 +205,7 @@
     for (let i = 0; i < workerCount; i++) {
       downloadWorker = new Worker(workerObjectURL)
       downloadWorker.onmessage = function(event) {
-        const thisWorker = event.target
+        let thisWorker = event.target
         if (event.data.message === 'done' || event.data.message === 'start') {
           if (event.data.message === 'done') {
             statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
@@ -221,7 +221,6 @@
               statusMessage("All S3 URLs processed.")
               if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
             }
-            thisWorker = null
           }
         }
       }
