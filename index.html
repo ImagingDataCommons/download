@@ -23,255 +23,250 @@
   </script>
 
   <script type="module">
-      console.log("Starting IDC download example...")
+    console.log("Starting IDC download example...")
 
-      // feedback on the page
-      function statusMessage(message) {
-        const messageP = document.createElement("p")
-        messageP.innerText = message
-        document.body.appendChild(messageP)
-      }
+    // feedback on the page
+    function statusMessage(message) {
+      const messageP = document.createElement("p")
+      messageP.innerText = message
+      document.body.appendChild(messageP)
+    }
 
-      // wrap reader in promise so we can await it
-      // https://gist.github.com/yoojinyoung/d6e615791f6dff6b72a7774c45ce6ab2
-      function readFileAsync(blob) {
-        return new Promise((resolve, reject) => {
-          let reader = new FileReader()
-          reader.onload = () => { resolve(reader.result) }
-          reader.onerror = reject
-          reader.readAsText(blob)
-        })
-      }
-
-      // either read from cache or download
-      const cache = await caches.open('idc-download')
-      const request = new Request('idc_data.json')
-      const response = await cache.match(request)
-      if (response) {
-        statusMessage("Reading from cache")
-        const cachedBlob = await response.blob()
-        const cachedJSON = await readFileAsync(cachedBlob)
-        cachedData = JSON.parse(cachedJSON)
-        collection_ids = cachedData.collection_ids
-        idc_data = cachedData.idc_data
-        statusMessage("Data restored")
-      } else {
-        statusMessage("Downloading IDC data - will be cached for faster load next time...")
-        hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
-        idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
-        idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
-        idc_data = await hyparquet.parquetReadObjects({
-          file: idc_index_file,
-          columns: ['collection_id', 'PatientID', 'StudyInstanceUID', 'SeriesInstanceUID', 'series_aws_url'],
-        })
-        const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
-        const collection_ids_set = new Set()
-        collectionQuery.forEach((o) => {collection_ids_set.add(o.collection_id)})
-        collection_ids = Array.from(collection_ids_set)
-        // save to cache
-        const jsonString = JSON.stringify({collection_ids, idc_data})
-        const jsonBlob = new Blob([jsonString], {type: "application/json"})
-        await cache.put(request, new Response(jsonBlob))
-        statusMessage("Downloaded and saved to cache")
-      }
-
-      const urlString = window.location.search
-      if (urlString != '') {
-        const urlParams = new URLSearchParams(urlString)
-        const seriesInstanceUID = urlParams.get('seriesInstanceUID')
-        console.log("Want to download ", seriesInstanceUID)
-        idc_data.forEach((o) => {
-          if (o.SeriesInstanceUID == seriesInstanceUID) {
-            const series_aws_url_parts = o.series_aws_url.split('/')
-            query_prefix = series_aws_url_parts.slice(-2)[0]
-          }
-        })
-        if (!query_prefix) {
-          statusMessage(`Could not find seriesInstanceUID from url (${seriesInstanceUID})`)
-        }
-      } else {
-        // Pick a random series to download
-        collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
-        console.log("Random collection_id:", collection_id)
-        idc_data = idc_data.filter((o) => o.collection_id === collection_id)
-        console.log("Filtered IDC data for collection_id:", collection_id)
-        console.log(idc_data)
-
-        const collection_PatientIDs = new Set()
-        idc_data.forEach((o) => {
-          collection_PatientIDs.add(o.PatientID)
-        })
-        const patient_id = Array.from(collection_PatientIDs)[Math.floor(Math.random() * collection_PatientIDs.size)]
-        console.log("Random PatientID:", patient_id)
-        idc_data = idc_data.filter((o) => o.PatientID === patient_id)
-        console.log("Filtered IDC data for PatientID:", patient_id)
-        console.log(idc_data)
-        const series_aws_urls = new Set()
-        idc_data.forEach((o) => {
-          series_aws_urls.add(o.series_aws_url)
-        })
-        const series_aws_url = Array.from(series_aws_urls)[Math.floor(Math.random() * series_aws_urls.size)]
-        console.log("Random series_aws_url:", series_aws_url)
-        const series_aws_url_parts = series_aws_url.split('/')
-        console.log("series_aws_url_parts:", series_aws_url_parts)
-        query_prefix = series_aws_url_parts.slice(-2)[0]
-        console.log("Query prefix:", query_prefix)
-      }
-      query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
-      console.log("Query URL:", query_url)
-
-      const workerCode = `
-          console.log('Worker: Script loaded and running.')
-          
-          async function createNestedDirectories(topLevelDirectoryHandle, path) {
-            const pathSegments = path.split('/').filter((segment) => segment !== '')
-            let currentDirectoryHandle = topLevelDirectoryHandle
-            for (const segment of pathSegments) {
-              try {
-                // Attempt to get the directory handle without creating it
-                const entry = await currentDirectoryHandle.getDirectoryHandle(segment, {
-                  create: false,
-                })
-                currentDirectoryHandle = entry
-              } catch (error) {
-                // If the error is specifically about the directory not existing, create it
-                if (error .name === 'NotFoundError') {
-                  const entry = await currentDirectoryHandle.getDirectoryHandle(segment, {
-                    create: true,
-                  })
-                  currentDirectoryHandle = entry
-                } else {
-                  // Handle other potential errors (e.g., name conflicts)
-                  return false // Indicate failure
-                }
-              }
-            }
-            // Return the last directory handle
-            return currentDirectoryHandle
-          }
-
-          importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
-
-          function dicomValue(dataset,tagName) {
-              let value = "Undefined-"+tagName
-              const entry = dcmjs.data.DicomMetaDictionary.nameMap[tagName]
-              if (entry && entry.tag) {
-                const hexTag = entry.tag.replace("(","").replace(",","").replace(")","")
-                if (hexTag in dataset.dict) {
-                  value = dataset.dict[hexTag].Value
-                }
-              }
-              return value
-          }
-
-          self.onmessage = async function(event) {
-              console.log('Worker: Message received from main script:', event.data)
-              const s3_url = event.data.url
-              const directoryHandle = event.data.directoryHandle
-              const collection_id = event.data.collection_id || 'unknown_collection'
-              response = await fetch(s3_url)
-              if (!response.ok) {
-                  console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
-                  self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
-                  return
-              }
-              const arrayBuffer = await response.arrayBuffer()
-              console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
-              const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
-              console.log('Worker: DICOM dataset loaded:', dataset)
-              const patientID = dicomValue(dataset,"PatientID")
-              const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
-              const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
-              const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
-              const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
-              const fileName = sopInstanceUID + ".dcm"
-              const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
-              const file = new File([blob], fileName, { type: 'application/dicom' })
-              const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
-              const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
-              const writable = await fileHandle.createWritable()
-              await writable.write(arrayBuffer)
-              await writable.close()
-              console.log('Worker: File written to:', filePath)
-
-              self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
-          }
-      `
-      const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
-      const workerObjectURL = URL.createObjectURL(workerCodeBlob)
-
-      let directoryHandle
-
-      let workerCount = navigator.hardwareConcurrency
-      workerCount = 8
-      for (let i = 0; i < workerCount; i++) {
-        downloadWorker = new Worker(workerObjectURL)
-        downloadWorker.onmessage = function(event) {
-            if (event.data.message === 'done' || event.data.message === 'start') {
-                if (event.data.message === 'done') {
-                  statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
-                }
-                const s3_url = s3_urls.pop()
-                if (s3_url) {
-                    downloadWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
-                } else {
-                    if (downloadWorker) downloadWorker.terminate()
-                    downloadWorkers = downloadWorkers.filter(worker => worker !== downloadWorker)
-                    console.log(`${downloadWorkers.length} workers still active`)
-                    if (downloadWorkers.length == 0) {
-                      statusMessage("All S3 URLs processed.")
-                      if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-                    }
-                    downloadWorker = null
-                }
-            }
-        }
-        downloadWorker.onerror = function(error) {
-            console.error('Main: Error in worker:', error.message, error)
-            if (downloadWorker) downloadWorker.terminate()
-            if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-            downloadWorker = null
-        }
-        downloadWorkers.push(downloadWorker)
-      }
-      statusMessage(`Using ${downloadWorkers.length} workers`)
-
-      const x = new XMLHttpRequest()
-      x.open("GET", query_url, true)
-      x.addEventListener("load", () => {
-        console.log("Loaded IDC index data")
-        const parser = new DOMParser()
-        const xmls = x.response.toString()
-        const doc = parser.parseFromString(xmls, "text/xml")
-        console.log(doc)
-        const items = doc.querySelectorAll("Contents")
-        console.log("Items found:", items.length)
-        items.forEach((item) => {
-          const key = item.querySelector("Key").textContent
-          s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
-        })
-        console.log("S3 URLs:", s3_urls)
-        statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
-
-        const downloadButton = document.createElement('button')
-        downloadButton.textContent = 'Download'
-        document.body.appendChild(downloadButton)
-        downloadButton.addEventListener("click", async () => {
-          directoryHandle = await window.showDirectoryPicker({
-              id: 'idc-downloads',
-              startIn: 'downloads',
-              mode: 'readwrite',
-          })
-          downloadWorkers.forEach(downloadWorker => {
-            downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
-          })
-        })
-
+    // wrap reader in promise so we can await it
+    // https://gist.github.com/yoojinyoung/d6e615791f6dff6b72a7774c45ce6ab2
+    function readFileAsync(blob) {
+      return new Promise((resolve, reject) => {
+        let reader = new FileReader()
+        reader.onload = () => { resolve(reader.result) }
+        reader.onerror = reject
+        reader.readAsText(blob)
       })
-      x.send()
+    }
 
+    // either read from cache or download
+    const cache = await caches.open('idc-download')
+    const request = new Request('idc_data.json')
+    const response = await cache.match(request)
+    if (response) {
+      statusMessage("Reading from cache")
+      const cachedBlob = await response.blob()
+      const cachedJSON = await readFileAsync(cachedBlob)
+      cachedData = JSON.parse(cachedJSON)
+      collection_ids = cachedData.collection_ids
+      idc_data = cachedData.idc_data
+      statusMessage("Data restored")
+    } else {
+      statusMessage("Downloading IDC data - will be cached for faster load next time...")
+      hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
+      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+      idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
+      idc_data = await hyparquet.parquetReadObjects({
+        file: idc_index_file,
+        columns: ['collection_id', 'PatientID', 'StudyInstanceUID', 'SeriesInstanceUID', 'series_aws_url'],
+      })
+      const collectionQuery = await hyparquet.parquetReadObjects({ file: idc_index_file, columns: ['collection_id']})
+      const collection_ids_set = new Set()
+      collectionQuery.forEach((o) => {collection_ids_set.add(o.collection_id)})
+      collection_ids = Array.from(collection_ids_set)
+      // save to cache
+      const jsonString = JSON.stringify({collection_ids, idc_data})
+      const jsonBlob = new Blob([jsonString], {type: "application/json"})
+      await cache.put(request, new Response(jsonBlob))
+      statusMessage("Downloaded and saved to cache")
+    }
 
-      
+    const urlString = window.location.search
+    if (urlString != '') {
+      const urlParams = new URLSearchParams(urlString)
+      const seriesInstanceUID = urlParams.get('SeriesInstanceUID')
+      console.log("Want to download ", seriesInstanceUID)
+      idc_data.forEach((o) => {
+        if (o.SeriesInstanceUID == seriesInstanceUID) {
+          const series_aws_url_parts = o.series_aws_url.split('/')
+          query_prefix = series_aws_url_parts.slice(-2)[0]
+        }
+      })
+      if (!query_prefix) {
+        statusMessage(`Could not find seriesInstanceUID from url (${seriesInstanceUID})`)
+      }
+    } else {
+      // Pick a random series to download
+      collection_id = collection_ids[Math.floor(Math.random() * collection_ids.length)]
+      console.log("Random collection_id:", collection_id)
+      idc_data = idc_data.filter((o) => o.collection_id === collection_id)
+      console.log("Filtered IDC data for collection_id:", collection_id)
+      console.log(idc_data)
+
+      const collection_PatientIDs = new Set()
+      idc_data.forEach((o) => {
+        collection_PatientIDs.add(o.PatientID)
+      })
+      const patient_id = Array.from(collection_PatientIDs)[Math.floor(Math.random() * collection_PatientIDs.size)]
+      console.log("Random PatientID:", patient_id)
+      idc_data = idc_data.filter((o) => o.PatientID === patient_id)
+      console.log("Filtered IDC data for PatientID:", patient_id)
+      console.log(idc_data)
+      const series_aws_urls = new Set()
+      idc_data.forEach((o) => {
+        series_aws_urls.add(o.series_aws_url)
+        console.log(o.SeriesInstanceUID)
+      })
+      const series_aws_url = Array.from(series_aws_urls)[Math.floor(Math.random() * series_aws_urls.size)]
+      console.log("Random series_aws_url:", series_aws_url)
+      const series_aws_url_parts = series_aws_url.split('/')
+      query_prefix = series_aws_url_parts.slice(-2)[0]
+    }
+    query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
+    console.log("Query URL:", query_url)
+
+    const workerCode = `
+      console.log('Worker: Script loaded and running.')
+
+      async function createNestedDirectories(topLevelDirectoryHandle, path) {
+        const pathSegments = path.split('/').filter((segment) => segment !== '')
+        let currentDirectoryHandle = topLevelDirectoryHandle
+        for (const segment of pathSegments) {
+          try {
+            // Attempt to get the directory handle without creating it
+            const entry = await currentDirectoryHandle.getDirectoryHandle(segment, {
+              create: false,
+            })
+            currentDirectoryHandle = entry
+          } catch (error) {
+            // If the error is specifically about the directory not existing, create it
+            if (error .name === 'NotFoundError') {
+              const entry = await currentDirectoryHandle.getDirectoryHandle(segment, {
+                create: true,
+              })
+              currentDirectoryHandle = entry
+            } else {
+              // Handle other potential errors (e.g., name conflicts)
+              return false // Indicate failure
+            }
+          }
+        }
+        // Return the last directory handle
+        return currentDirectoryHandle
+      }
+
+      importScripts('https://cdn.jsdelivr.net/npm/dcmjs@0.41.0/build/dcmjs.min.js')
+
+      function dicomValue(dataset,tagName) {
+          let value = "Undefined-"+tagName
+          const entry = dcmjs.data.DicomMetaDictionary.nameMap[tagName]
+          if (entry && entry.tag) {
+            const hexTag = entry.tag.replace("(","").replace(",","").replace(")","")
+            if (hexTag in dataset.dict) {
+              value = dataset.dict[hexTag].Value
+            }
+          }
+          return value
+      }
+
+      self.onmessage = async function(event) {
+          console.log('Worker: Message received from main script:', event.data)
+          const s3_url = event.data.url
+          const directoryHandle = event.data.directoryHandle
+          const collection_id = event.data.collection_id || 'unknown_collection'
+          response = await fetch(s3_url)
+          if (!response.ok) {
+              console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
+              self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
+              return
+          }
+          const arrayBuffer = await response.arrayBuffer()
+          console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
+          const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
+          console.log('Worker: DICOM dataset loaded:', dataset)
+          const patientID = dicomValue(dataset,"PatientID")
+          const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
+          const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
+          const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
+          const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
+          const fileName = sopInstanceUID + ".dcm"
+          const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
+          const file = new File([blob], fileName, { type: 'application/dicom' })
+          const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
+          const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
+          const writable = await fileHandle.createWritable()
+          await writable.write(arrayBuffer)
+          await writable.close()
+          console.log('Worker: File written to:', filePath)
+
+          self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
+      }
+    `
+    const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
+    const workerObjectURL = URL.createObjectURL(workerCodeBlob)
+
+    let directoryHandle
+
+    let workerCount = navigator.hardwareConcurrency
+    for (let i = 0; i < workerCount; i++) {
+      downloadWorker = new Worker(workerObjectURL)
+      downloadWorker.onmessage = function(event) {
+        const thisWorker = downloadWorker
+        if (event.data.message === 'done' || event.data.message === 'start') {
+          if (event.data.message === 'done') {
+            statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
+          }
+          const s3_url = s3_urls.pop()
+          if (s3_url) {
+              thisWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
+          } else {
+            if (thisWorker) thisWorker.terminate()
+            downloadWorkers = downloadWorkers.filter(worker => worker !== thisWorker)
+            console.log(`${downloadWorkers.length} workers still active`)
+            if (downloadWorkers.length == 0) {
+              statusMessage("All S3 URLs processed.")
+              if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+            }
+            thisWorker = null
+          }
+        }
+      }
+      downloadWorker.onerror = function(error) {
+        console.error('Main: Error in worker:', error.message, error)
+        if (downloadWorker) downloadWorker.terminate()
+        if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+        downloadWorker = null
+      }
+      downloadWorkers.push(downloadWorker)
+    }
+    statusMessage(`Using ${downloadWorkers.length} workers`)
+
+    const x = new XMLHttpRequest()
+    x.open("GET", query_url, true)
+    x.addEventListener("load", () => {
+      console.log("Loaded IDC index data")
+      const parser = new DOMParser()
+      const xmls = x.response.toString()
+      const doc = parser.parseFromString(xmls, "text/xml")
+      console.log(doc)
+      const items = doc.querySelectorAll("Contents")
+      console.log("Items found:", items.length)
+      items.forEach((item) => {
+        const key = item.querySelector("Key").textContent
+        s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
+      })
+      console.log("S3 URLs:", s3_urls)
+      statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
+
+      const downloadButton = document.createElement('button')
+      downloadButton.textContent = 'Download'
+      document.body.appendChild(downloadButton)
+      downloadButton.addEventListener("click", async () => {
+        directoryHandle = await window.showDirectoryPicker({
+            id: 'idc-downloads',
+            startIn: 'downloads',
+            mode: 'readwrite',
+        })
+        downloadWorkers.forEach(downloadWorker => {
+          downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
+        })
+      })
+    })
+    x.send()
 
     </script>
   </body>
