@@ -233,7 +233,7 @@
           }
         }
         if (event.data.message === 'error') {
-          statusMessage(`
+          statusMessage(`Error ${event.data}`)
         }
       }
       downloadWorker.onerror = function(event) {
