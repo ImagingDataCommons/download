@@ -166,38 +166,52 @@
       self.onmessage = async function(event) {
           console.log('Worker: Message received from main script:', event.data)
           const s3_url = event.data.url
-          const directoryHandle = event.data.directoryHandle
-          const collection_id = event.data.collection_id || 'unknown_collection'
-          response = await fetch(s3_url)
-          if (!response.ok) {
-              console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
-              self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
-              return
+          try {
+            const directoryHandle = event.data.directoryHandle
+            const collection_id = event.data.collection_id || 'unknown_collection'
+            response = await fetch(s3_url)
+            if (!response.ok) {
+                console.error('Worker: Failed to fetch S3 URL:', s3_url, response.statusText)
+                self.postMessage({message: "error", error: "Failed to fetch S3 URL"})
+                return
+            }
+            const arrayBuffer = await response.arrayBuffer()
+            console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
+            const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
+            console.log('Worker: DICOM dataset loaded:', dataset)
+            const patientID = dicomValue(dataset,"PatientID")
+            const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
+            const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
+            const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
+            const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
+            const fileName = sopInstanceUID + ".dcm"
+            const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
+            const file = new File([blob], fileName, { type: 'application/dicom' })
+            const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
+            const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
+            const writable = await fileHandle.createWritable()
+            await writable.write(arrayBuffer)
+            await writable.close()
+            console.log('Worker: File written to:', filePath)
+            self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
+          } catch (error) {
+            self.postMessage({message: "error", path: s3_url, error: error})
           }
-          const arrayBuffer = await response.arrayBuffer()
-          console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
-          const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
-          console.log('Worker: DICOM dataset loaded:', dataset)
-          const patientID = dicomValue(dataset,"PatientID")
-          const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
-          const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
-          const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
-          const filePath = [collection_id,patientID,studyInstanceUID,seriesInstanceUID].join("/")
-          const fileName = sopInstanceUID + ".dcm"
-          const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
-          const file = new File([blob], fileName, { type: 'application/dicom' })
-          const subDirectoryHandle = await createNestedDirectories(directoryHandle, filePath)
-          const fileHandle = await subDirectoryHandle.getFileHandle(fileName, { create: true, })
-          const writable = await fileHandle.createWritable()
-          await writable.write(arrayBuffer)
-          await writable.close()
-          console.log('Worker: File written to:', filePath)
 
-          self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
       }
     `
     const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
     const workerObjectURL = URL.createObjectURL(workerCodeBlob)
+
+    function finalizeWorker(worker) {
+      if (worker) worker.terminate()
+      downloadWorkers = downloadWorkers.filter(worker => worker !== worker)
+      console.log(`${downloadWorkers.length} workers still active`)
+      if (downloadWorkers.length == 0) {
+        statusMessage("All S3 URLs processed.")
+        if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+      }
+    }
 
     let directoryHandle
 
@@ -214,21 +228,14 @@
           if (s3_url) {
               thisWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
           } else {
-            if (thisWorker) thisWorker.terminate()
-            downloadWorkers = downloadWorkers.filter(worker => worker !== thisWorker)
-            console.log(`${downloadWorkers.length} workers still active`)
-            if (downloadWorkers.length == 0) {
-              statusMessage("All S3 URLs processed.")
-              if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-            }
+            finalizeWorker(thisWorker)
           }
         }
       }
-      downloadWorker.onerror = function(error) {
-        console.error('Main: Error in worker:', error.message, error)
-        if (downloadWorker) downloadWorker.terminate()
-        if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-        downloadWorker = null
+      downloadWorker.onerror = function(event) {
+        let thisWorker = event.target
+        console.error('Main: Error in worker:', event.message, event)
+        finalizeWorker(thisWorker)
       }
       downloadWorkers.push(downloadWorker)
     }
