@@ -205,7 +205,7 @@
     for (let i = 0; i < workerCount; i++) {
       downloadWorker = new Worker(workerObjectURL)
       downloadWorker.onmessage = function(event) {
-        const thisWorker = downloadWorker
+        const thisWorker = event.target
         if (event.data.message === 'done' || event.data.message === 'start') {
           if (event.data.message === 'done') {
             statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
@@ -231,7 +231,7 @@
         if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
         downloadWorker = null
       }
-      downloadWorkers.push(downloadWorker)
+      downloadWorkers(downloadWorker)
     }
     statusMessage(`Using ${downloadWorkers.length} workers`)
 
@@ -262,7 +262,7 @@
             mode: 'readwrite',
         })
         downloadWorkers.forEach(downloadWorker => {
-          downloadWorker.onmessage({data: {message: "start"}}) // start the downloads
+          downloadWorker.onmessage({target: downloadWorker, data: {message: "start"}}) // start the downloads
         })
       })
     })
