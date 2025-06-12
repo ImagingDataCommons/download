@@ -205,7 +205,7 @@
 
     function finalizeWorker(worker) {
       if (worker) worker.terminate()
-      downloadWorkers = downloadWorkers.filter(worker => worker !== worker)
+      downloadWorkers = downloadWorkers.filter(w => w !== worker)
       console.log(`${downloadWorkers.length} workers still active`)
       if (downloadWorkers.length == 0) {
         statusMessage("All S3 URLs processed.")
