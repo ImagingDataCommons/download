@@ -231,7 +231,7 @@
         if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
         downloadWorker = null
       }
-      downloadWorkers(downloadWorker)
+      downloadWorkers.push(downloadWorker)
     }
     statusMessage(`Using ${downloadWorkers.length} workers`)
 
