@@ -16,7 +16,7 @@
     let cachedData, collection_ids, idc_data, idc_index_file, idc_index_url
     let hyparquet
     let asyncBufferFromUrl, parquetReadObjects, parquetMetadataAsync
-    let query_prefix, query_url, collection_id
+    let query_prefix, collection_id
     let downloadWorkers = []
     let downloadWorker
     const s3_urls = []
@@ -117,8 +117,6 @@
       const series_aws_url_parts = series_aws_url.split('/')
       query_prefix = series_aws_url_parts.slice(-2)[0]
     }
-    query_url = `https://idc-open-data.s3.us-east-1.amazonaws.com/?list-type=2&prefix=${query_prefix}`
-    console.log("Query URL:", query_url)
 
     const workerCode = `
       console.log('Worker: Script loaded and running.')
@@ -246,38 +244,67 @@
     }
     statusMessage(`Using ${downloadWorkers.length} workers`)
 
-    const x = new XMLHttpRequest()
-    x.open("GET", query_url, true)
-    x.addEventListener("load", () => {
-      console.log("Loaded IDC index data")
-      const parser = new DOMParser()
-      const xmls = x.response.toString()
-      const doc = parser.parseFromString(xmls, "text/xml")
-      console.log(doc)
-      const items = doc.querySelectorAll("Contents")
-      console.log("Items found:", items.length)
-      items.forEach((item) => {
-        const key = item.querySelector("Key").textContent
-        s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
-      })
-      console.log("S3 URLs:", s3_urls)
-      statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
+    async function getAllS3ObjectKeys(bucket, region, prefix) {
+      const allKeys = [];
+      let isTruncated = true;
+      let continuationToken = null;
+      while (isTruncated) {
+        let url = `https://${bucket}.s3.${region}.amazonaws.com/?list-type=2`;
+        if (prefix) {
+          url += `&prefix=${encodeURIComponent(prefix)}`;
+        }
+        if (continuationToken) {
+          url += `&continuation-token=${encodeURIComponent(continuationToken)}`;
+        }
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+          }
+          const xmlText = await response.text();
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+          const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent;
+          if (errorCode) {
+            const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent;
+            throw new Error(`S3 API Error: ${errorCode} - ${errorMessage}`);
+          }
+          const keyElements = xmlDoc.getElementsByTagName('Key');
+          const keysOnPage = Array.from(keyElements).map(el => el.textContent);
+          allKeys.push(...keysOnPage);
+          isTruncated = xmlDoc.getElementsByTagName('IsTruncated')[0]?.textContent === 'true';
+          if (isTruncated) {
+            continuationToken = xmlDoc.getElementsByTagName('NextContinuationToken')[0]?.textContent;
+          } else {
+            continuationToken = null;
+          }
+        } catch (error) {
+          console.error("Failed to fetch S3 data:", error);
+          throw error; // Re-throw the error to be handled by the caller
+        }
+      }
+      return allKeys;
+    }
 
+    getAllS3ObjectKeys("idc-open-data", "us-east-1", query_prefix).then( s3_urls => {
+      statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
       const downloadButton = document.createElement('button')
       downloadButton.textContent = 'Download'
       document.body.appendChild(downloadButton)
       downloadButton.addEventListener("click", async () => {
         directoryHandle = await window.showDirectoryPicker({
-            id: 'idc-downloads',
-            startIn: 'downloads',
-            mode: 'readwrite',
+          id: 'idc-downloads',
+          startIn: 'downloads',
+          mode: 'readwrite',
         })
-        downloadWorkers.forEach(downloadWorker => {
-          downloadWorker.onmessage({target: downloadWorker, data: {message: "start"}}) // start the downloads
+        if (directoryHandle) {
+          downloadWorkers.forEach(downloadWorker => {
+            downloadWorker.onmessage({target: downloadWorker, data: {message: "start"}}) // start the downloads
+          })
+        }
         })
-      })
+      }
     })
-    x.send()
 
     </script>
   </body>
