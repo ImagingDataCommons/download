@@ -8,6 +8,7 @@
   <body>
     <h1>IDC Download</h1>
     <div id="downloads"></div>
+    <p id="progress"></p>
 
 
   <script src="https://unpkg.com/dcmjs@0.41.0/build/dcmjs.js"></script>
@@ -30,6 +31,10 @@
       const messageP = document.createElement("p")
       messageP.innerText = message
       document.body.appendChild(messageP)
+    }
+    const progressP = window.querySelector("#progress")
+    function progressUpdate(message) {
+      progressP.innerText = message
     }
 
     // wrap reader in promise so we can await it
@@ -221,7 +226,7 @@
         let thisWorker = event.target
         if (event.data.message === 'done' || event.data.message === 'start') {
           if (event.data.message === 'done') {
-            statusMessage(`${event.data.path} downloaded to ${event.data.localFilePath}, ${s3_urls.length} remaining`)
+            progressUpdate(`${event.data.path} downloaded, ${s3_urls.length} remaining`)
           }
           const s3_url = s3_urls.pop()
           if (s3_url) {
@@ -231,7 +236,7 @@
           }
         }
         if (event.data.message === 'error') {
-          statusMessage(`Error ${event.data}`)
+          statusMessage(`Error ${JSON.stringify(event.data)}`)
         }
       }
       downloadWorker.onerror = function(event) {
