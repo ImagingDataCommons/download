@@ -199,6 +199,7 @@
             console.log('Worker: File written to:', filePath)
             self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
           } catch (error) {
+            console.error(error)
             self.postMessage({message: "error", path: s3_url, error: error})
           }
 
@@ -224,19 +225,18 @@
       downloadWorker = new Worker(workerObjectURL)
       downloadWorker.onmessage = function(event) {
         let thisWorker = event.target
-        if (event.data.message === 'done' || event.data.message === 'start') {
-          if (event.data.message === 'done') {
-            progressUpdate(`${event.data.path} downloaded, ${s3_urls.length} remaining`)
-          }
-          const s3_url = s3_urls.pop()
-          if (s3_url) {
-              thisWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
-          } else {
-            finalizeWorker(thisWorker)
-          }
-        }
         if (event.data.message === 'error') {
           statusMessage(`Error ${JSON.stringify(event.data)}`)
+          //s3_urls.push(event.data.path) // queue for retry
+        }
+        if (event.data.message === 'done') {
+          progressUpdate(`${event.data.path} downloaded, ${s3_urls.length} remaining`)
+        }
+        const s3_url = s3_urls.pop()
+        if (s3_url) {
+            thisWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
+        } else {
+          finalizeWorker(thisWorker)
         }
       }
       downloadWorker.onerror = function(event) {
