@@ -285,8 +285,10 @@
       }
       return allKeys;
     }
-
-    getAllS3ObjectKeys("idc-open-data", "us-east-1", query_prefix).then( s3_urls => {
+    getAllS3ObjectKeys("idc-open-data", "us-east-1", query_prefix).then( keys => {
+      keys.forEach((key) => {
+        s3_urls.push(`https://idc-open-data.s3.us-east-1.amazonaws.com/${key}`)
+      })
       statusMessage(`Manifest downloaded, ${s3_urls.length} downloads`)
       const downloadButton = document.createElement('button')
       downloadButton.textContent = 'Download'
