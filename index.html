@@ -186,7 +186,7 @@
             const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
             const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
             const seriesInstanceUID = dicomValue(dataset,"SeriesInstanceUID")
-            const seriesDirectory = `${modality}_${seriesInstanceUID}`
+            const seriesDirectory = modality + "_" + seriesInstanceUID
             const filePath = [collection_id,patientID,studyInstanceUID,seriesDirectory].join("/")
             const fileName = sopInstanceUID + ".dcm"
             const blob = new Blob([arrayBuffer], { type: 'application/dicom' })
