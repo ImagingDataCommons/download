@@ -167,7 +167,6 @@
           return value
       }
 
-      let workerDownloadCount = 0
       self.onmessage = async function(event) {
           console.log('Worker: Message received from main script:', event.data)
           const s3_url = event.data.url
@@ -198,11 +197,10 @@
             await writable.write(arrayBuffer)
             await writable.close()
             console.log('Worker: File written to:', filePath)
-            workerDownloadCount += 1
-            self.postMessage({message: "done", path: s3_url, localFilePath: filePath, workerDownloadCount: workerDownloadCount})
+            self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
           } catch (error) {
             console.error(error)
-            self.postMessage({message: "error", path: s3_url, error: error, workerDownloadCount: workerDownloadCount})
+            self.postMessage({message: "error", path: s3_url, error: error})
           }
 
       }
@@ -225,9 +223,10 @@
       if (event.data.message === 'done') {
         progressUpdate(`${s3_urls.length} remaining: ${event.data.path} downloaded`)
       }
-      if (s3_urls.length == 0 || event.data.workerDownloadCount > workerDownloadThreshold) {
+      if (s3_urls.length == 0 || thisWorker.downloadCount > workerDownloadThreshold) {
         finalizeWorker(thisWorker)
       } else {
+        thisWorker.downloadCount += 1
         availableWorkers.push(thisWorker)
       }
       triggerWorkerDownloads()
@@ -242,6 +241,7 @@
         statusMessage('Main: Error in worker:', event.message, event)
         finalizeWorker(thisWorker)
       }
+      downloadWorkers.downloadCount = 0
       downloadWorkers.push(downloadWorker)
       return downloadWorker
     }
