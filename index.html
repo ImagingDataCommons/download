@@ -247,8 +247,9 @@
     }
 
     let workerLimit = navigator.hardwareConcurrency
+    let directoryHandle
 
-    function triggerWorkerDownloads(directoryHandle) {
+    function triggerWorkerDownloads() {
       if (s3_urls.length == 0 && downloadWorkers.length == 0) {
         if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
         statusMessage(`Downloads complete`)
@@ -321,13 +322,13 @@
       downloadButton.textContent = 'Download'
       document.body.appendChild(downloadButton)
       downloadButton.addEventListener("click", async () => {
-        let directoryHandle = await window.showDirectoryPicker({
+        directoryHandle = await window.showDirectoryPicker({
           id: 'idc-downloads',
           startIn: 'downloads',
           mode: 'readwrite',
         })
         if (directoryHandle) {
-          triggerWorkerDownloads(directoryHandle)
+          triggerWorkerDownloads()
         }
       })
     })
