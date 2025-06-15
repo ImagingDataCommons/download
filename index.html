@@ -230,7 +230,7 @@
           //s3_urls.push(event.data.path) // queue for retry
         }
         if (event.data.message === 'done') {
-          progressUpdate(`${event.data.path} downloaded, ${s3_urls.length} remaining`)
+          progressUpdate(`${s3_urls.length} remaining: ${event.data.path} downloaded`)
         }
         const s3_url = s3_urls.pop()
         if (s3_url) {
