@@ -168,7 +168,6 @@
       }
 
       self.onmessage = async function(event) {
-          console.log('Worker: Message received from main script:', event.data)
           const s3_url = event.data.url
           try {
             const directoryHandle = event.data.directoryHandle
@@ -180,9 +179,7 @@
                 return
             }
             const arrayBuffer = await response.arrayBuffer()
-            console.log('Worker: Fetched S3 URL:', s3_url, 'ArrayBuffer length:', arrayBuffer.byteLength)
             const dataset = dcmjs.data.DicomMessage.readFile(arrayBuffer)
-            console.log('Worker: DICOM dataset loaded:', dataset)
             const patientID = dicomValue(dataset,"PatientID")
             const sopInstanceUID = dicomValue(dataset,"SOPInstanceUID")
             const studyInstanceUID = dicomValue(dataset,"StudyInstanceUID")
@@ -196,7 +193,6 @@
             const writable = await fileHandle.createWritable()
             await writable.write(arrayBuffer)
             await writable.close()
-            console.log('Worker: File written to:', filePath)
             self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
           } catch (error) {
             console.error(error)
