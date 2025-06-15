@@ -213,11 +213,11 @@
     const availableWorkers = []
 
     function finalizeWorker(worker) {
-      if (worker) worker.terminate()
+      worker.terminate()
       downloadWorkers = downloadWorkers.filter(w => w !== worker)
     }
 
-    function workerOnMessage = function(event) {
+    function workerOnMessage (event) {
       let thisWorker = event.target
       if (event.data.message === 'error') {
         statusMessage(`Error ${JSON.stringify(event.data)}`)
