@@ -167,6 +167,7 @@
           return value
       }
 
+      let workerDownloadCount = 0
       self.onmessage = async function(event) {
           console.log('Worker: Message received from main script:', event.data)
           const s3_url = event.data.url
@@ -197,57 +198,77 @@
             await writable.write(arrayBuffer)
             await writable.close()
             console.log('Worker: File written to:', filePath)
-            self.postMessage({message: "done", path: s3_url, localFilePath: filePath})
+            workerDownloadCount += 1
+            self.postMessage({message: "done", path: s3_url, localFilePath: filePath, workerDownloadCount: workerDownloadCount})
           } catch (error) {
             console.error(error)
-            self.postMessage({message: "error", path: s3_url, error: error})
+            self.postMessage({message: "error", path: s3_url, error: error, workerDownloadCount: workerDownloadCount})
           }
 
       }
     `
     const workerCodeBlob = new Blob([workerCode], { type: 'application/javascript' })
     const workerObjectURL = URL.createObjectURL(workerCodeBlob)
+    const workerDownloadThreshold = 100
+    const availableWorkers = []
 
     function finalizeWorker(worker) {
       if (worker) worker.terminate()
       downloadWorkers = downloadWorkers.filter(w => w !== worker)
-      console.log(`${downloadWorkers.length} workers still active`)
-      if (downloadWorkers.length == 0) {
-        statusMessage("All S3 URLs processed.")
-        if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
-      }
     }
 
-    let directoryHandle
-
-    let workerCount = navigator.hardwareConcurrency
-    for (let i = 0; i < workerCount; i++) {
-      downloadWorker = new Worker(workerObjectURL)
-      downloadWorker.onmessage = function(event) {
-        let thisWorker = event.target
-        if (event.data.message === 'error') {
-          statusMessage(`Error ${JSON.stringify(event.data)}`)
-          //s3_urls.push(event.data.path) // queue for retry
-        }
-        if (event.data.message === 'done') {
-          progressUpdate(`${s3_urls.length} remaining: ${event.data.path} downloaded`)
-        }
-        const s3_url = s3_urls.pop()
-        if (s3_url) {
-            thisWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
-        } else {
-          finalizeWorker(thisWorker)
-        }
+    function workerOnMessage = function(event) {
+      let thisWorker = event.target
+      if (event.data.message === 'error') {
+        statusMessage(`Error ${JSON.stringify(event.data)}`)
       }
+      if (event.data.message === 'done') {
+        progressUpdate(`${s3_urls.length} remaining: ${event.data.path} downloaded`)
+      }
+      if (s3_urls.length == 0 || event.data.workerDownloadCount > workerDownloadThreshold) {
+        finalizeWorker(thisWorker)
+      } else {
+        availableWorkers.push(thisWorker)
+      }
+      triggerWorkerDownloads()
+    }
+
+    function allocateWorker() {
+      downloadWorker = new Worker(workerObjectURL)
+      downloadWorker.onmessage = workerOnMessage
       downloadWorker.onerror = function(event) {
         let thisWorker = event.target
         console.error('Main: Error in worker:', event.message, event)
         statusMessage('Main: Error in worker:', event.message, event)
         finalizeWorker(thisWorker)
       }
-      downloadWorkers.push(downloadWorker)
+      return downloadWorker
     }
-    statusMessage(`Using ${downloadWorkers.length} workers`)
+
+    let workerLimit = navigator.hardwareConcurrency
+
+    function triggerWorkerDownloads(directoryHandle) {
+      if (s3_urls.length == 0 && downloadWorkers.length == 0) {
+        if (workerObjectURL) URL.revokeObjectURL(workerObjectURL)
+        statusMessage(`Downloads complete`)
+      } else {
+        while (s3_urls.length > 0) {
+          let targetWorker
+          if (availableWorkers.length > 0) {
+            targetWorker = availableWorkers.pop()
+          } else {
+            if (downloadWorkers.length <= workerLimit) {
+              targetWorker = allocateWorker()
+            } else {
+              break // all workers busy and we can't add more
+            }
+          }
+          const s3_url = s3_urls.pop()
+          targetWorker.postMessage({ url: s3_url, collection_id: collection_id, directoryHandle: directoryHandle })
+        }
+      }
+    }
+
 
     async function getAllS3ObjectKeys(bucket, region, prefix) {
       const allKeys = [];
@@ -299,15 +320,13 @@
       downloadButton.textContent = 'Download'
       document.body.appendChild(downloadButton)
       downloadButton.addEventListener("click", async () => {
-        directoryHandle = await window.showDirectoryPicker({
+        let directoryHandle = await window.showDirectoryPicker({
           id: 'idc-downloads',
           startIn: 'downloads',
           mode: 'readwrite',
         })
         if (directoryHandle) {
-          downloadWorkers.forEach(downloadWorker => {
-            downloadWorker.onmessage({target: downloadWorker, data: {message: "start"}}) // start the downloads
-          })
+          triggerWorkerDownloads(directoryHandle)
         }
       })
     })
