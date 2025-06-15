@@ -242,6 +242,7 @@
         statusMessage('Main: Error in worker:', event.message, event)
         finalizeWorker(thisWorker)
       }
+      downloadWorkers.push(downloadWorker)
       return downloadWorker
     }
 
