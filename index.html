@@ -66,7 +66,7 @@
     } else {
       statusMessage("Downloading IDC metadata index - this will be cached for faster load next time you visit...")
       hyparquet = await import('https://cdn.jsdelivr.net/npm/hyparquet@1.9.0/src/hyparquet.min.js')
-      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v21.parquet"
+      idc_index_url = "https://storage.googleapis.com/idc-index-data-mirror/idc_index-v22.0.2.parquet"
       idc_index_file = await hyparquet.asyncBufferFromUrl({ url: idc_index_url }) // wrap url for async fetching
       idc_data = await hyparquet.parquetReadObjects({
         file: idc_index_file,
